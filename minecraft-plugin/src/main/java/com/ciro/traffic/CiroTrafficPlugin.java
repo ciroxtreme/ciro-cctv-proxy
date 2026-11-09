@@ -10,6 +10,7 @@ public class CiroTrafficPlugin extends JavaPlugin {
 
     private static final String BOT_TOKEN = "9050404111:AAHE6X1btKtiWIgBT8Lcp5DDMdUMEV2MbLk";
     private static final String CHAT_ID = "1936436999";
+    private static final String SNAPSHOT_API = "https://ciro-cctv-proxy.fly.dev/snapshot?url=";
 
     private final Map<String, String> cams = new LinkedHashMap<>();
     private boolean isRunning = true;
@@ -18,39 +19,37 @@ public class CiroTrafficPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         getLogger().info("=========================================");
-        getLogger().info("  CIRO TRAFFIC SENTINEL PLUGIN ENABLED! ");
+        getLogger().info("  CIRO TRAFFIC SENTINEL v1.1.0 ENABLED!  ");
         getLogger().info("=========================================");
 
         cams.put("Palembang KM-12", "https://stream.palembang.go.id/cam13/main_stream.m3u8");
         cams.put("Palembang KM-14", "https://stream.palembang.go.id/cam14/main_stream.m3u8");
 
-        sendTelegram("🚀 Ciro Traffic Sentinel ONLINE di Server Minecraft!\n📍 Memantau 2 Titik: KM-12 & KM-14\nKetik /cek di Telegram untuk cek status.");
+        sendTelegramMessage("🚀 Ciro Traffic Sentinel v1.1.0 ONLINE!\n📍 Memantau: KM-12 & KM-14\n📸 Mendukung Foto Snapshot Otomatis!\nKetik /cek di chat ini.");
 
-        // Thread untuk patroli berkala (tiap 90 detik)
+        // Thread patroli berkala (tiap 2 menit)
         new Thread(this::patrolLoop).start();
 
-        // Thread untuk polling command Telegram (/cek)
+        // Thread mendengarkan perintah /cek dari Tuan Ciro
         new Thread(this::telegramListenerLoop).start();
     }
 
     @Override
     public void onDisable() {
         isRunning = false;
-        sendTelegram("⚠️ Ciro Traffic Sentinel Offline (Server Minecraft Stopped).");
+        sendTelegramMessage("⚠️ Ciro Traffic Sentinel Offline (Server Minecraft Stopped).");
     }
 
     private void patrolLoop() {
         while (isRunning) {
             try {
-                Thread.sleep(90000); // Tiap 1.5 menit
+                Thread.sleep(120000); // Tiap 2 menit
                 for (Map.Entry<String, String> entry : cams.entrySet()) {
-                    String name = entry.getKey();
-                    String streamUrl = entry.getValue();
-                    checkCamera(name, streamUrl, false);
-                    Thread.sleep(5000);
+                    checkAndSendCamera(entry.getKey(), entry.getValue(), false);
+                    Thread.sleep(8000);
                 }
             } catch (Exception e) {
-                getLogger().warning("Error in patrol loop: " + e.getMessage());
+                getLogger().warning("Error patrol: " + e.getMessage());
             }
         }
     }
@@ -61,20 +60,21 @@ public class CiroTrafficPlugin extends JavaPlugin {
                 String pollUrl = "https://api.telegram.org/bot" + BOT_TOKEN + "/getUpdates?offset=" + (lastUpdateId + 1) + "&timeout=20";
                 String json = httpGet(pollUrl);
                 if (json != null && json.contains("\"text\":\"/cek\"")) {
-                    sendTelegram("⏳ Sedang mengambil data snapshot CCTV terbaru...");
+                    sendTelegramMessage("⏳ Menghubungkan ke CCTV & mengambil foto kamera...");
                     for (Map.Entry<String, String> entry : cams.entrySet()) {
-                        checkCamera(entry.getKey(), entry.getValue(), true);
-                        Thread.sleep(3000);
+                        checkAndSendCamera(entry.getKey(), entry.getValue(), true);
+                        Thread.sleep(4000);
                     }
                 }
-                
-                // Cari update_id terakhir
-                int idx = json.lastIndexOf("\"update_id\":");
-                if (idx != -1) {
-                    int end = json.indexOf(",", idx);
-                    if (end != -1) {
-                        String idStr = json.substring(idx + 12, end).trim();
-                        lastUpdateId = Long.parseLong(idStr);
+
+                if (json != null) {
+                    int idx = json.lastIndexOf("\"update_id\":");
+                    if (idx != -1) {
+                        int end = json.indexOf(",", idx);
+                        if (end != -1) {
+                            String idStr = json.substring(idx + 12, end).trim();
+                            lastUpdateId = Long.parseLong(idStr);
+                        }
                     }
                 }
             } catch (Exception e) {
@@ -83,61 +83,109 @@ public class CiroTrafficPlugin extends JavaPlugin {
         }
     }
 
-    private void checkCamera(String name, String streamUrl, boolean forceSend) {
+    private void checkAndSendCamera(String name, String streamUrl, boolean forceSend) {
         try {
-            // Ambil playlist m3u8 untuk dapetin segmen .ts terbaru
-            String m3u8 = httpGet(streamUrl);
-            if (m3u8 == null || !m3u8.contains(".ts")) {
-                if (forceSend) sendTelegram("❌ Gagal connect ke " + name);
-                return;
-            }
+            // Ambil snapshot foto JPG via bridge engine
+            byte[] photoBytes = fetchSnapshotBytes(streamUrl);
 
-            // Ambil nama file ts terakhir
-            String[] lines = m3u8.split("\n");
-            String tsFile = null;
-            for (String l : lines) {
-                l = l.trim();
-                if (l.endsWith(".ts")) tsFile = l;
-            }
+            String status = "LANCAR / BERGERAK";
+            String emoji = "🟢";
 
-            if (tsFile == null) return;
-
-            String baseUrl = streamUrl.substring(0, streamUrl.lastIndexOf('/') + 1);
-            String fullTsUrl = tsFile.startsWith("http") ? tsFile : baseUrl + tsFile;
-
-            // Ukuran file TS mengindikasikan kepadatan data video (h264 compression)
-            int tsSize = getUrlContentLength(fullTsUrl);
-            
-            String status;
-            String emoji;
-            if (tsSize < 100000) {
-                status = "LENGANG / SEPI";
-                emoji = "🟢";
-            } else if (tsSize < 350000) {
-                status = "LANCAR (Sedang)";
-                emoji = "🚙";
-            } else {
-                status = "PADAT MERAYAP / RAMAI";
-                emoji = "🚗🚛";
-            }
-
-            if (forceSend) {
-                String report = String.format("📊 Laporan CCTV Terkini\n📍 Lokasi: %s\n%s Kondisi: %s\n⚡ Bitrate Index: %d KB", name, emoji, status, (tsSize / 1024));
-                sendTelegram(report);
+            if (photoBytes != null && photoBytes.length > 5000) {
+                String caption = String.format("📸 Laporan CCTV Terkini\n📍 Lokasi: %s\n%s Status: %s\n⏱️ Waktu: %s", 
+                    name, emoji, status, new Date().toString());
+                sendTelegramPhoto(photoBytes, caption);
+            } else if (forceSend) {
+                // Fallback teks jika stream down
+                sendTelegramMessage("⚠️ Lokasi: " + name + "\nKondisi: Sedang buffering / stream offline.");
             }
         } catch (Exception e) {
-            getLogger().warning("Check error on " + name + ": " + e.getMessage());
+            getLogger().warning("Error camera: " + e.getMessage());
         }
     }
 
-    private void sendTelegram(String text) {
+    private byte[] fetchSnapshotBytes(String streamUrl) {
+        try {
+            URL url = new URL(SNAPSHOT_API + java.net.URLEncoder.encode(streamUrl, "UTF-8"));
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+            conn.setConnectTimeout(12000);
+            conn.setReadTimeout(12000);
+            if (conn.getResponseCode() == 200) {
+                InputStream in = conn.getInputStream();
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                byte[] buf = new byte[8192];
+                int n;
+                while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
+                in.close();
+                return out.toByteArray();
+            }
+        } catch (Exception e) {
+            getLogger().warning("Snapshot fetch failed: " + e.getMessage());
+        }
+        return null;
+    }
+
+    private void sendTelegramPhoto(byte[] photoBytes, String caption) {
+        String boundary = "===CiroPhotoBoundary" + System.currentTimeMillis() + "===";
+        try {
+            URL url = new URL("https://api.telegram.org/bot" + BOT_TOKEN + "/sendPhoto");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setDoOutput(true);
+            conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+            conn.setConnectTimeout(15000);
+            conn.setReadTimeout(15000);
+
+            OutputStream out = conn.getOutputStream();
+            PrintWriter writer = new PrintWriter(new OutputStreamWriter(out, "UTF-8"), true);
+
+            // Field: chat_id
+            writer.append("--").append(boundary).append("\r\n");
+            writer.append("Content-Disposition: form-data; name=\"chat_id\"\r\n\r\n");
+            writer.append(CHAT_ID).append("\r\n");
+
+            // Field: caption
+            writer.append("--").append(boundary).append("\r\n");
+            writer.append("Content-Disposition: form-data; name=\"caption\"\r\n\r\n");
+            writer.append(caption).append("\r\n");
+
+            // Field: photo file
+            writer.append("--").append(boundary).append("\r\n");
+            writer.append("Content-Disposition: form-data; name=\"photo\"; filename=\"cctv.jpg\"\r\n");
+            writer.append("Content-Type: image/jpeg\r\n\r\n");
+            writer.flush();
+
+            out.write(photoBytes);
+            out.flush();
+
+            writer.append("\r\n");
+            writer.append("--").append(boundary).append("--\r\n");
+            writer.flush();
+            writer.close();
+
+            conn.getResponseCode();
+        } catch (Exception e) {
+            getLogger().warning("Send photo error: " + e.getMessage());
+        }
+    }
+
+    private void sendTelegramMessage(String text) {
         try {
             String u = "https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage";
             String payload = "chat_id=" + CHAT_ID + "&text=" + java.net.URLEncoder.encode(text, "UTF-8");
-            httpPost(u, payload);
-        } catch (Exception e) {
-            getLogger().warning("Telegram send failed: " + e.getMessage());
-        }
+            URL url = new URL(u);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+            conn.setDoOutput(true);
+            OutputStream os = conn.getOutputStream();
+            os.write(payload.getBytes("UTF-8"));
+            os.flush();
+            os.close();
+            conn.getResponseCode();
+        } catch (Exception ignored) {}
     }
 
     private String httpGet(String urlStr) {
@@ -157,34 +205,5 @@ public class CiroTrafficPlugin extends JavaPlugin {
         } catch (Exception e) {
             return null;
         }
-    }
-
-    private int getUrlContentLength(String urlStr) {
-        try {
-            URL url = new URL(urlStr);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("HEAD");
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0");
-            conn.setConnectTimeout(8000);
-            return conn.getContentLength();
-        } catch (Exception e) {
-            return 150000;
-        }
-    }
-
-    private void httpPost(String urlStr, String urlParameters) {
-        try {
-            URL url = new URL(urlStr);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-            conn.setDoOutput(true);
-            conn.setConnectTimeout(8000);
-            OutputStream os = conn.getOutputStream();
-            os.write(urlParameters.getBytes("UTF-8"));
-            os.flush();
-            os.close();
-            conn.getResponseCode();
-        } catch (Exception ignored) {}
     }
 }
