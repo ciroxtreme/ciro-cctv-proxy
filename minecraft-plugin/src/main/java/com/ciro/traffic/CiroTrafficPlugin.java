@@ -39,6 +39,9 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
         // Inisialisasi engine snapshot lokal (mandiri tanpa fly.io)
         setupLocalSnapshotEngine();
 
+        // Otomatis menambal server.properties agar enable-rcon=false permanen
+        autoDisableRconConfig();
+
         sendTelegramMessage("🚀 Ciro Traffic Sentinel v2.3.0 (FINAL) ONLINE!\n📍 Memantau: KM-12 & Punti Kayu\n📸 Engine Snapshot Mandiri Siap!\nKetik /cek untuk cek CCTV.");
 
         // Anti-Idle Detak Jantung
@@ -224,6 +227,34 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
             } catch (Exception e) {
                 try { Thread.sleep(5000); } catch (Exception ignored) {}
             }
+        }
+    }
+
+    private void autoDisableRconConfig() {
+        try {
+            File propFile = new File("server.properties");
+            if (propFile.exists()) {
+                List<String> lines = Files.readAllLines(propFile.toPath());
+                boolean modified = false;
+                List<String> newLines = new ArrayList<>();
+                for (String line : lines) {
+                    if (line.startsWith("enable-rcon=") && !line.equals("enable-rcon=false")) {
+                        newLines.add("enable-rcon=false");
+                        modified = true;
+                    } else if (line.startsWith("rcon.port=") && !line.equals("rcon.port=25599")) {
+                        newLines.add("rcon.port=25599");
+                        modified = true;
+                    } else {
+                        newLines.add(line);
+                    }
+                }
+                if (modified) {
+                    Files.write(propFile.toPath(), newLines);
+                    getLogger().info("✓ Berhasil menambal server.properties: enable-rcon=false & port dipindahkan!");
+                }
+            }
+        } catch (Exception e) {
+            getLogger().warning("Gagal auto patch server.properties: " + e.getMessage());
         }
     }
 
