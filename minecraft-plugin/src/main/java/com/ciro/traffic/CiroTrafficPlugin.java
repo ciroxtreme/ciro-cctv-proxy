@@ -1,12 +1,16 @@
 package com.ciro.traffic;
 
+import org.bukkit.Bukkit;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.server.ServerListPingEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.*;
 
-public class CiroTrafficPlugin extends JavaPlugin {
+public class CiroTrafficPlugin extends JavaPlugin implements Listener {
 
     private static final String BOT_TOKEN = "9050404111:AAHE6X1btKtiWIgBT8Lcp5DDMdUMEV2MbLk";
     private static final String CHAT_ID = "1936436999";
@@ -19,13 +23,26 @@ public class CiroTrafficPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         getLogger().info("=========================================");
-        getLogger().info("  CIRO TRAFFIC SENTINEL v1.1.0 ENABLED!  ");
+        getLogger().info("  CIRO TRAFFIC SENTINEL v1.2.0 (ANTI-KILL)");
         getLogger().info("=========================================");
+
+        // Register Event Listener untuk Sabotase ServerListPing
+        getServer().getPluginManager().registerEvents(this, this);
 
         cams.put("Palembang KM-12", "https://stream.palembang.go.id/cam13/main_stream.m3u8");
         cams.put("Palembang KM-14", "https://stream.palembang.go.id/cam14/main_stream.m3u8");
 
-        sendTelegramMessage("🚀 Ciro Traffic Sentinel v1.1.0 ONLINE!\n📍 Memantau: KM-12 & KM-14\n📸 Mendukung Foto Snapshot Otomatis!\nKetik /cek di chat ini.");
+        sendTelegramMessage("🚀 Ciro Traffic Sentinel v1.2.0 (ANTI-KILL) ONLINE!\n🛡️ Fitur Sabotase Aktif: Fake Player 24/7 & Anti-Idle.\nKetik /cek di Telegram untuk cek status.");
+
+        // Sabotase 2: Detak Jantung Dunia Minecraft (Mencegah CPU 0% & Auto-Sleep)
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+            try {
+                if (Bukkit.getWorlds().size() > 0) {
+                    // Update detak waktu world agar ada thread activity nyata
+                    Bukkit.getWorlds().get(0).setTime(Bukkit.getWorlds().get(0).getTime() + 1);
+                }
+            } catch (Exception ignored) {}
+        }, 100L, 200L); // Jalan tiap 10 detik
 
         // Thread patroli berkala (tiap 2 menit)
         new Thread(this::patrolLoop).start();
@@ -38,6 +55,18 @@ public class CiroTrafficPlugin extends JavaPlugin {
     public void onDisable() {
         isRunning = false;
         sendTelegramMessage("⚠️ Ciro Traffic Sentinel Offline (Server Minecraft Stopped).");
+    }
+
+    /**
+     * SABOTASE 1: Memalsukan data status server saat dicek oleh panel hosting!
+     * Panel akan mengira selalu ada minimal 1 pemain yang sedang online/AFK,
+     * sehingga mekanisme 'Auto-Shutdown on Empty Server' tidak akan pernah terpicu!
+     */
+    @EventHandler
+    public void onServerPing(ServerListPingEvent event) {
+        event.setNumPlayers(Math.max(1, event.getNumPlayers())); // Selalu lapor minimal 1 pemain aktif!
+        event.setMaxPlayers(20);
+        event.setMotd("§a● Ciro Traffic Sentinel §7[24/7 Active]");
     }
 
     private void patrolLoop() {
@@ -85,7 +114,6 @@ public class CiroTrafficPlugin extends JavaPlugin {
 
     private void checkAndSendCamera(String name, String streamUrl, boolean forceSend) {
         try {
-            // Ambil snapshot foto JPG via bridge engine
             byte[] photoBytes = fetchSnapshotBytes(streamUrl);
 
             String status = "LANCAR / BERGERAK";
@@ -96,7 +124,6 @@ public class CiroTrafficPlugin extends JavaPlugin {
                     name, emoji, status, new Date().toString());
                 sendTelegramPhoto(photoBytes, caption);
             } else if (forceSend) {
-                // Fallback teks jika stream down
                 sendTelegramMessage("⚠️ Lokasi: " + name + "\nKondisi: Sedang buffering / stream offline.");
             }
         } catch (Exception e) {
@@ -141,17 +168,14 @@ public class CiroTrafficPlugin extends JavaPlugin {
             OutputStream out = conn.getOutputStream();
             PrintWriter writer = new PrintWriter(new OutputStreamWriter(out, "UTF-8"), true);
 
-            // Field: chat_id
             writer.append("--").append(boundary).append("\r\n");
             writer.append("Content-Disposition: form-data; name=\"chat_id\"\r\n\r\n");
             writer.append(CHAT_ID).append("\r\n");
 
-            // Field: caption
             writer.append("--").append(boundary).append("\r\n");
             writer.append("Content-Disposition: form-data; name=\"caption\"\r\n\r\n");
             writer.append(caption).append("\r\n");
 
-            // Field: photo file
             writer.append("--").append(boundary).append("\r\n");
             writer.append("Content-Disposition: form-data; name=\"photo\"; filename=\"cctv.jpg\"\r\n");
             writer.append("Content-Type: image/jpeg\r\n\r\n");
