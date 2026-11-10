@@ -1,28 +1,27 @@
 /**
- * 🛡️ CIRO PLAY.HOSTING KEEPER (GITHUB ACTIONS SENTINEL v3.0 - PURE AZURE IP)
+ * 🛡️ CIRO PLAY.HOSTING KEEPER (GITHUB ACTIONS SENTINEL v4.0 - INFINITE RUNNER)
  * 
- * 100% Menggunakan Direct Connection dari GitHub Runner (IP Microsoft Azure Datacenter)
- * TIDAK MENGGUNAKAN PROXY CCTV CIRO SAMA SEKALI!
+ * Durasi per run: 25 Menit
+ * Auto-Reconnect & Persistent Anti-Limbo Guard
  */
 const mineflayer = require('mineflayer');
 
 const HOST = process.env.MC_HOST || 'cirobro.play.hosting';
 const PORT = parseInt(process.env.MC_PORT || '25565', 10);
 const USERNAME = 'Ciro';
-const DURATION_MS = (parseInt(process.env.KEEPALIVE_MINUTES || '12', 10)) * 60 * 1000;
+const DURATION_MS = (parseInt(process.env.KEEPALIVE_MINUTES || '25', 10)) * 60 * 1000;
 const END_TIME = Date.now() + DURATION_MS;
 
 console.log('======================================================');
-console.log('  🛡️ CIRO PLAY.HOSTING SENTINEL (DIRECT AZURE IP)     ');
+console.log('  🛡️ CIRO PLAY.HOSTING SENTINEL (INFINITE RUNNER)     ');
 console.log('======================================================');
 console.log(`[Target Server] : ${HOST}:${PORT}`);
 console.log(`[Username]      : ${USERNAME}`);
 console.log(`[Durasi]        : ${DURATION_MS / 60000} menit`);
-console.log('[Koneksi]       : Direct Azure / GitHub Cloud (Zero Local Proxy)');
 
 function createBot() {
     if (Date.now() >= END_TIME) {
-        console.log('[Keeper] Target durasi 12 menit selesai. Standby graceful exit.');
+        console.log('[Keeper] Waktu siklus 25 menit selesai. Keluar untuk regenerasi runner baru.');
         process.exit(0);
         return;
     }
@@ -50,7 +49,9 @@ function createBot() {
                 bot.setControlState('jump', true);
                 setTimeout(() => bot.setControlState('jump', false), 350);
                 const remaining = Math.round((END_TIME - Date.now()) / 1000);
-                console.log(`[Keeper Active] Melompat anti-AFK. Sisa waktu: ${remaining}s`);
+                if (remaining % 60 === 0 || remaining < 30) {
+                    console.log(`[Keeper Active] Standby anti-AFK. Sisa waktu: ${remaining}s`);
+                }
                 if (remaining <= 0) {
                     bot.quit();
                     process.exit(0);
