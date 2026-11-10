@@ -34,12 +34,12 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(this, this);
 
         cams.put("Palembang KM-12", "https://stream.palembang.go.id/cam13/main_stream.m3u8");
-        cams.put("Palembang KM-14", "https://stream.palembang.go.id/cam14/main_stream.m3u8");
+        cams.put("Palembang Punti Kayu", "https://stream.palembang.go.id/cam14/main_stream.m3u8");
 
         // Inisialisasi engine snapshot lokal (mandiri tanpa fly.io)
         setupLocalSnapshotEngine();
 
-        sendTelegramMessage("🚀 Ciro Traffic Sentinel v1.4.0 (MANDIRI) ONLINE!\n📍 Memantau: KM-12 & KM-14\n📸 Engine Snapshot Mandiri Siap!\nKetik /cek untuk cek CCTV.");
+        sendTelegramMessage("🚀 Ciro Traffic Sentinel v2.3.0 (FINAL) ONLINE!\n📍 Memantau: KM-12 & Punti Kayu\n📸 Engine Snapshot Mandiri Siap!\nKetik /cek untuk cek CCTV.");
 
         // Anti-Idle Detak Jantung
         Bukkit.getScheduler().runTaskTimer(this, () -> {
@@ -227,6 +227,12 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
         }
     }
 
+    private String getWibTime() {
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss 'WIB'", new java.util.Locale("id", "ID"));
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Jakarta"));
+        return sdf.format(new Date());
+    }
+
     private String resolveLatestTsSegment(String m3u8Url) {
         try {
             URL u = new URL(m3u8Url);
@@ -334,7 +340,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                 if (outJpg.exists() && outJpg.length() > 3000) {
                     byte[] photoBytes = Files.readAllBytes(outJpg.toPath());
                     String caption = String.format("📸 Laporan CCTV Terkini\n📍 Lokasi: %s\n🟢 Status: LANCAR / BERGERAK\n⏱️ Waktu: %s", 
-                        name, new Date().toString());
+                        name, getWibTime());
                     sendTelegramPhoto(photoBytes, caption);
                 } else if (forceSend) {
                     String lastSnippet = consoleLogs.toString();
