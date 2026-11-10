@@ -1,9 +1,7 @@
-from flask import Flask, request, Response, send_file
+from flask import Flask, request, Response
 import requests
 import re
 import os
-import subprocess
-import time
 
 app = Flask(__name__)
 
@@ -11,37 +9,11 @@ DEFAULT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 
 @app.route("/")
 def index():
-    return "Ciro CCTV Proxy & Snapshot Engine is Running 🚀", 200
+    return "Ciro CCTV Proxy Relay is Running 🚀", 200
 
 @app.route("/health")
 def health():
     return {"status": "ok", "service": "ciro-cctv-proxy"}, 200
-
-@app.route("/snapshot")
-def snapshot():
-    target_url = request.args.get("url")
-    if not target_url:
-        return "Missing 'url' query parameter", 400
-
-    out_file = f"/tmp/snap_{int(time.time()*1000)}.jpg"
-    cmd = [
-        "ffmpeg", "-y",
-        "-i", target_url,
-        "-vframes", "1",
-        "-q:v", "3",
-        out_file
-    ]
-    try:
-        res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=8)
-        if res.returncode == 0 and os.path.exists(out_file):
-            return send_file(out_file, mimetype="image/jpeg")
-        else:
-            return "Failed to extract frame", 502
-    except Exception as e:
-        return f"Snapshot error: {str(e)}", 500
-    finally:
-        # cleanup after send
-        pass
 
 @app.route("/proxy")
 def proxy():
