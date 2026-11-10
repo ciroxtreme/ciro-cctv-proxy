@@ -247,16 +247,20 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
     }
 
     private void startAutoRestartCron() {
+        // Jalankan di detik ke-240 (menit ke-4)
         Bukkit.getScheduler().runTaskLater(this, () -> {
-            getLogger().warning("⏱️ [CRONJOB AUTO-RESTART] Menit ke-4 tercapai! Me-restart server untuk me-reset timer idle MineKeep...");
-            try {
-                // Panggil perintah restart bawaan Spigot/Paper
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "restart");
-            } catch (Exception e) {
+            getLogger().warning("⏱️ [CRONJOB RESTART LOOP] Menit ke-4 tercapai! Memicu Pterodactyl auto-restart daemon...");
+            new Thread(() -> {
                 try {
-                    Bukkit.spigot().restart();
-                } catch (Exception ignored) {}
-            }
+                    // Beri jeda 1 detik agar log tersimpan rapi
+                    Thread.sleep(1000);
+                    // Panggil exit code 1 agar Pterodactyl Daemon mendeteksi crash dan OTOMATIS me-restart container!
+                    // (Pterodactyl auto-restart container jika uptime > 60 detik)
+                    Runtime.getRuntime().halt(1);
+                } catch (Exception ignored) {
+                    System.exit(1);
+                }
+            }).start();
         }, 4800L); // 240 detik = 4 menit persis
     }
 
