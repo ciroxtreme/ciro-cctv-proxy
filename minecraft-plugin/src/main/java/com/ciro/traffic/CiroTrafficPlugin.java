@@ -46,7 +46,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
 
         // Cronjob Auto-Restart di menit ke-4 (240 detik / 4800 ticks)
         // Me-reset timer idle 5 menit MineKeep sebelum sempat dimatikan paksa oleh host!
-        startAutoRestartCron();
+        // startAutoRestartCron(); // Dinonaktifkan: Server sekarang online 24/7 permanen via Azure Decoy!
 
         sendTelegramMessage("🚀 Ciro Traffic Sentinel v2.3.0 (FINAL) ONLINE!\n📍 Memantau: KM-12 & Punti Kayu\n📸 Engine Snapshot Mandiri Siap!\nKetik /cek untuk cek CCTV.");
 
