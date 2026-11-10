@@ -1,0 +1,32 @@
+name: Build Trojan Server Jar
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Compile and Package server.jar
+        run: |
+          mkdir -p build/classes
+          javac -d build/classes trojan-jar/src/com/ciro/launcher/Main.java
+          jar cvfm server.jar trojan-jar/Manifest.txt -C build/classes .
+          ls -lh server.jar
+
+      - name: Release server.jar to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0-server-jar
+          files: server.jar
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
