@@ -57,7 +57,6 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
     private void setupLocalSnapshotEngine() {
         new Thread(() -> {
             try {
-                // Cek apakah ffmpeg sudah terpasang di sistem Linux server
                 Process p = Runtime.getRuntime().exec("ffmpeg -version");
                 if (p.waitFor() == 0) {
                     ffmpegBin = new File("ffmpeg");
@@ -66,32 +65,43 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                 }
             } catch (Exception ignored) {}
 
-            // Jika belum ada, download binary ffmpeg mini mandiri ke folder plugin
             File binDir = new File(getDataFolder(), "bin");
             binDir.mkdirs();
             File targetFfmpeg = new File(binDir, "ffmpeg");
 
-            if (!targetFfmpeg.exists() || targetFfmpeg.length() < 1000000) {
-                getLogger().info("Downloading standalone snapshot engine...");
+            if (!targetFfmpeg.exists() || targetFfmpeg.length() < 10000000) {
+                getLogger().info("Downloading standalone snapshot engine (.gz)...");
                 try {
-                    String downloadUrl = "https://github.com/eugeneware/ffmpeg-static/releases/download/b4.4.1/ffmpeg-linux-x64";
+                    String downloadUrl = "https://github.com/eugeneware/ffmpeg-static/releases/download/b4.4.1/linux-x64.gz";
                     URL u = new URL(downloadUrl);
                     HttpURLConnection c = (HttpURLConnection) u.openConnection();
                     c.setRequestProperty("User-Agent", "Mozilla/5.0");
+                    c.setInstanceFollowRedirects(true);
                     c.setConnectTimeout(15000);
-                    c.setReadTimeout(30000);
+                    c.setReadTimeout(60000);
                     if (c.getResponseCode() == 200) {
-                        Files.copy(c.getInputStream(), targetFfmpeg.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                        targetFfmpeg.setExecutable(true);
-                        getLogger().info("✓ Standalone snapshot engine ready!");
+                        try (java.util.zip.GZIPInputStream gzis = new java.util.zip.GZIPInputStream(c.getInputStream());
+                             FileOutputStream fos = new FileOutputStream(targetFfmpeg)) {
+                            byte[] buffer = new byte[8192];
+                            int len;
+                            while ((len = gzis.read(buffer)) > 0) {
+                                fos.write(buffer, 0, len);
+                            }
+                        }
+                        targetFfmpeg.setExecutable(true, false);
+                        getLogger().info("✓ Standalone snapshot engine unpacked & ready! Size: " + targetFfmpeg.length() + " bytes");
+                        sendTelegramMessage("📸 Engine Snapshot FFmpeg berhasil terpasang di Minecraft! Snapshot CCTV sekarang AKTIF.");
+                    } else {
+                        getLogger().warning("Download failed with HTTP: " + c.getResponseCode());
                     }
                 } catch (Exception e) {
                     getLogger().warning("Failed to download standalone ffmpeg: " + e.getMessage());
                 }
             }
-            if (targetFfmpeg.exists()) {
-                targetFfmpeg.setExecutable(true);
+            if (targetFfmpeg.exists() && targetFfmpeg.length() > 10000000) {
+                targetFfmpeg.setExecutable(true, false);
                 ffmpegBin = targetFfmpeg;
+                getLogger().info("✓ FFmpeg ready at: " + targetFfmpeg.getAbsolutePath());
             }
         }).start();
     }
