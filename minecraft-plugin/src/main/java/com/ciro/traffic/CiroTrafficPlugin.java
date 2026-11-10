@@ -23,7 +23,11 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
     private static final String BOT_TOKEN = "9050404111:AAHE6X1btKtiWIgBT8Lcp5DDMdUMEV2MbLk";
     private static final String CHAT_ID = "1936436999";
 
-    private final Map<String, String> cams = new LinkedHashMap<>();
+    // Master map seluruh 30 CCTV Palembang
+    private final Map<String, String> allCams = new LinkedHashMap<>();
+    // Patroli reguler fokus di titik padat utama
+    private final Map<String, String> patrolCams = new LinkedHashMap<>();
+
     private boolean isRunning = true;
     private long lastUpdateId = 0;
     private File ffmpegBin;
@@ -32,23 +36,59 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
     public void onEnable() {
         getServer().getPluginManager().registerEvents(this, this);
 
-        cams.put("Palembang KM-12", "https://stream.palembang.go.id/cam13/main_stream.m3u8");
-        cams.put("Palembang Punti Kayu", "https://stream.palembang.go.id/cam14/main_stream.m3u8");
+        // Inisialisasi Seluruh 30 Kamera CCTV Kota Palembang
+        initCameraList();
 
         setupLocalSnapshotEngine();
         autoDisableRconConfig();
 
-        sendTelegramMessage("🚀 ClearLag Sentinel v3.1.6 ONLINE!\n📍 Memantau: KM-12 & Punti Kayu\n⚡ Motion Delta Traffic Analyzer Aktif!\nKetik /cek untuk cek CCTV.");
+        sendTelegramMessage("🚀 *ClearLag Sentinel v3.2.0 ONLINE!*\n📍 *Tersedia 30 Titik CCTV Palembang*\n⚡ Perintah:\n• `/cctv` : Cek status & ping ke-30 CCTV Palembang\n• `/cek` : Ambil foto & analisis macet KM-12 & Punti Kayu\n• `/cek <nama/nomor>` : Ambil snapshot titik tertentu");
 
-        // Jadwal Patroli Tiap 1 Jam (72000 ticks)
+        // Jadwal Patroli Tiap 1 Jam (72000 ticks) untuk titik utama
         Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> {
-            for (Map.Entry<String, String> e : cams.entrySet()) {
+            for (Map.Entry<String, String> e : patrolCams.entrySet()) {
                 checkAndSendCamera(e.getKey(), e.getValue(), false);
             }
         }, 1200L, 72000L);
 
-        // Telegram Polling (/cek)
+        // Telegram Polling (/cctv & /cek)
         startTelegramPolling();
+    }
+
+    private void initCameraList() {
+        allCams.put("Bank Sumsel Atmo", "https://stream.palembang.go.id/cam39/index.m3u8");
+        allCams.put("JL VETERAN", "https://stream.palembang.go.id/cam40/index.m3u8");
+        allCams.put("SP BOM BARU", "https://stream.palembang.go.id/cam42/index.m3u8");
+        allCams.put("SP DPRD PROV", "https://stream.palembang.go.id/cam44/index.m3u8");
+        allCams.put("SP BANDARA", "https://stream.palembang.go.id/cam45/index.m3u8");
+        allCams.put("SP Soekarno Hatta", "https://stream.palembang.go.id/cam48/index.m3u8");
+        allCams.put("JL VETERAN 1", "https://stream.palembang.go.id/cam41/index.m3u8");
+        allCams.put("TAMAN SISWA", "https://stream.palembang.go.id/cam47/index.m3u8");
+        allCams.put("Jl Tembesu", "https://stream.palembang.go.id/cam49/index.m3u8");
+        allCams.put("JL VETERAN 2", "https://stream.palembang.go.id/cam50/index.m3u8");
+        allCams.put("SP Parameswara", "https://stream.palembang.go.id/cam43/index.m3u8");
+        allCams.put("Kebun Sayur", "https://stream.palembang.go.id/cam46/index.m3u8");
+        allCams.put("Plaza 7 Ulu", "https://stream.palembang.go.id/cam20/index.m3u8");
+        allCams.put("SP IP", "https://stream.palembang.go.id/cam30/index.m3u8");
+        allCams.put("Cinde", "https://stream.palembang.go.id/cam6/index.m3u8");
+        allCams.put("Lampu Merah Kol Atmo", "https://stream.palembang.go.id/cam38/index.m3u8");
+        allCams.put("Simpang Angkatan 45", "https://stream.palembang.go.id/cam5/index.m3u8");
+        allCams.put("Kambang Iwak", "https://stream.palembang.go.id/cam28/index.m3u8");
+        allCams.put("Darma Agung", "https://stream.palembang.go.id/cam24/index.m3u8");
+        allCams.put("SP Samsat", "https://stream.palembang.go.id/cam21/index.m3u8");
+        allCams.put("Lapangan Parkir Pasar 16", "https://stream.palembang.go.id/cam25/index.m3u8");
+        allCams.put("DEPAN DISDUKCAPIL", "https://stream.palembang.go.id/cam26/index.m3u8");
+        allCams.put("Pasar 16", "https://stream.palembang.go.id/cam36/index.m3u8");
+        allCams.put("KM 12", "https://stream.palembang.go.id/cam13/index.m3u8");
+        allCams.put("Punti Kayu", "https://stream.palembang.go.id/cam14/index.m3u8");
+        allCams.put("Masjid Agung", "https://stream.palembang.go.id/cam9/index.m3u8");
+        allCams.put("SP Charitas", "https://stream.palembang.go.id/cam8/index.m3u8");
+        allCams.put("Simpang Macan Lindungan", "https://stream.palembang.go.id/cam4/index.m3u8");
+        allCams.put("Simpang Polda", "https://stream.palembang.go.id/cam3/index.m3u8");
+        allCams.put("Benteng Kuto Besak", "https://stream.palembang.go.id/cam2/index.m3u8");
+
+        patrolCams.put("KM 12", "https://stream.palembang.go.id/cam13/index.m3u8");
+        patrolCams.put("Punti Kayu", "https://stream.palembang.go.id/cam14/index.m3u8");
     }
 
     private void setupLocalSnapshotEngine() {
@@ -160,29 +200,40 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
     }
 
     private String resolveLatestTsSegment(String m3u8Url) {
-        try {
-            URL u = new URL(m3u8Url);
-            HttpURLConnection conn = (HttpURLConnection) u.openConnection();
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0");
-            conn.setConnectTimeout(8000);
-            conn.setReadTimeout(8000);
-            if (conn.getResponseCode() == 200) {
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
-                    String line;
-                    String lastTs = null;
-                    while ((line = reader.readLine()) != null) {
-                        line = line.trim();
-                        if (!line.isEmpty() && !line.startsWith("#")) lastTs = line;
-                    }
-                    if (lastTs != null) {
-                        if (lastTs.startsWith("http://") || lastTs.startsWith("https://")) return lastTs;
-                        int lastSlash = m3u8Url.lastIndexOf('/');
-                        String base = (lastSlash != -1) ? m3u8Url.substring(0, lastSlash + 1) : m3u8Url + "/";
-                        return base + lastTs;
+        // Fallback coba index.m3u8 atau main_stream.m3u8
+        List<String> tryUrls = new ArrayList<>();
+        tryUrls.add(m3u8Url);
+        if (m3u8Url.contains("index.m3u8")) {
+            tryUrls.add(m3u8Url.replace("index.m3u8", "main_stream.m3u8"));
+        } else if (m3u8Url.contains("main_stream.m3u8")) {
+            tryUrls.add(m3u8Url.replace("main_stream.m3u8", "index.m3u8"));
+        }
+
+        for (String targetUrl : tryUrls) {
+            try {
+                URL u = new URL(targetUrl);
+                HttpURLConnection conn = (HttpURLConnection) u.openConnection();
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+                conn.setConnectTimeout(6000);
+                conn.setReadTimeout(6000);
+                if (conn.getResponseCode() == 200) {
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+                        String line;
+                        String lastTs = null;
+                        while ((line = reader.readLine()) != null) {
+                            line = line.trim();
+                            if (!line.isEmpty() && !line.startsWith("#")) lastTs = line;
+                        }
+                        if (lastTs != null) {
+                            if (lastTs.startsWith("http://") || lastTs.startsWith("https://")) return lastTs;
+                            int lastSlash = targetUrl.lastIndexOf('/');
+                            String base = (lastSlash != -1) ? targetUrl.substring(0, lastSlash + 1) : targetUrl + "/";
+                            return base + lastTs;
+                        }
                     }
                 }
-            }
-        } catch (Exception ignored) {}
+            } catch (Exception ignored) {}
+        }
         return m3u8Url;
     }
 
@@ -195,7 +246,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
             int w = Math.min(img1.getWidth(), img2.getWidth());
             int h = Math.min(img1.getHeight(), img2.getHeight());
             long totalDiff = 0;
-            int step = 4; // sampling tiap 4 pixel agar secepat kilat
+            int step = 4; // sampling tiap 4 pixel
             long sampledPixels = 0;
 
             for (int y = 0; y < h; y += step) {
@@ -224,7 +275,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
         try {
             File localFfmpeg = new File(new File(getDataFolder(), "bin"), "ffmpeg");
             if (!localFfmpeg.exists()) {
-                if (forceSend) sendTelegramMessage("⚠️ Engine ffmpeg belum terpasang di folder plugin.");
+                if (forceSend) sendTelegramMessage("⚠️ Engine ffmpeg belum selesai terpasang di folder plugin.");
                 return;
             }
             localFfmpeg.setExecutable(true, false);
@@ -238,8 +289,8 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                 URL u = new URL(tsUrl);
                 HttpURLConnection conn = (HttpURLConnection) u.openConnection();
                 conn.setRequestProperty("User-Agent", "Mozilla/5.0");
-                conn.setConnectTimeout(10000);
-                conn.setReadTimeout(15000);
+                conn.setConnectTimeout(8000);
+                conn.setReadTimeout(12000);
 
                 if (conn.getResponseCode() == 200) {
                     try (InputStream in = conn.getInputStream();
@@ -251,7 +302,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                         }
                     }
                 } else {
-                    if (forceSend) sendTelegramMessage("⚠️ Gagal mengambil stream: " + name);
+                    if (forceSend) sendTelegramMessage("⚠️ Gagal mengambil stream: " + name + " (HTTP " + conn.getResponseCode() + ")");
                     return;
                 }
 
@@ -289,7 +340,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                     }
 
                     byte[] photoBytes = Files.readAllBytes(f2.toPath());
-                    String title = forceSend ? "📸 *PENGECEKAN MANUAL CCTV*" : "🚨 *PATROLI OTOMATIS CCTV*";
+                    String title = forceSend ? "📸 *PENGECEKAN CCTV PALEMBANG*" : "🚨 *PATROLI OTOMATIS CCTV*";
                     String caption = String.format("%s\n📍 Lokasi: *%s*\n🕒 Waktu: *%s*\n\n🚦 *Kondisi Jalan:* %s *%s*\n⚡ *Indeks Dinamika Arus:* `%.2f / 100`\n📝 *Analisis:* %s",
                         title, name, getWibTime(), statusIcon, statusText, delta, desc);
 
@@ -298,13 +349,78 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                     sendTelegramMessage("⚠️ Gagal memotong frame snapshot " + name);
                 }
             } catch (Exception err) {
-                if (forceSend) sendTelegramMessage("🚨 Error: " + err.getMessage());
+                if (forceSend) sendTelegramMessage("🚨 Error " + name + ": " + err.getMessage());
             } finally {
                 if (localTsFile.exists()) localTsFile.delete();
                 if (f1.exists()) f1.delete();
                 if (f2.exists()) f2.delete();
             }
         } catch (Exception ignored) {}
+    }
+
+    // Menguji ping seluruh 30 CCTV Palembang
+    private void handleCctvPingCommand() {
+        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+            sendTelegramMessage("📡 *Memulai Uji Ping ke-30 Titik CCTV Palembang...*\nMohon tunggu sekitar 5-10 detik.");
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("📋 *STATUS & UJI PING CCTV PALEMBANG*\n");
+            sb.append("🕒 Waktu: *").append(getWibTime()).append("*\n\n");
+
+            int onlineCount = 0;
+            int offlineCount = 0;
+            int num = 1;
+
+            for (Map.Entry<String, String> entry : allCams.entrySet()) {
+                String name = entry.getKey();
+                String streamUrl = entry.getValue();
+
+                long t0 = System.currentTimeMillis();
+                boolean online = false;
+                long latency = 0;
+
+                // Cek kedua opsi: index.m3u8 dan main_stream.m3u8
+                List<String> targets = new ArrayList<>();
+                targets.add(streamUrl);
+                if (streamUrl.contains("index.m3u8")) {
+                    targets.add(streamUrl.replace("index.m3u8", "main_stream.m3u8"));
+                } else if (streamUrl.contains("main_stream.m3u8")) {
+                    targets.add(streamUrl.replace("main_stream.m3u8", "index.m3u8"));
+                }
+
+                for (String u : targets) {
+                    try {
+                        URL target = new URL(u);
+                        HttpURLConnection conn = (HttpURLConnection) target.openConnection();
+                        conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+                        conn.setConnectTimeout(2500);
+                        conn.setReadTimeout(2500);
+                        if (conn.getResponseCode() == 200) {
+                            latency = System.currentTimeMillis() - t0;
+                            online = true;
+                            break;
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                if (online) {
+                    onlineCount++;
+                    sb.append(String.format("`%2d.` 🟢 *%s* `[%d ms]`\n", num, name, latency));
+                } else {
+                    offlineCount++;
+                    sb.append(String.format("`%2d.` 🔴 *%s* `[OFFLINE]`\n", num, name));
+                }
+                num++;
+            }
+
+            sb.append("\n📊 *Ringkasan Status:*\n");
+            sb.append("• 🟢 Online (Hidup): *").append(onlineCount).append(" Titik*\n");
+            sb.append("• 🔴 Offline (Mati): *").append(offlineCount).append(" Titik*\n");
+            sb.append("• 🌐 Total Terdaftar: *").append(allCams.size()).append(" Titik*\n\n");
+            sb.append("💡 *Tips:* Ketik `/cek <nomor/nama>` untuk ambil snapshot kamera tertentu (Contoh: `/cek punti`, `/cek km12`, `/cek 24`).");
+
+            sendTelegramMessage(sb.toString());
+        });
     }
 
     private void sendTelegramPhoto(byte[] photoBytes, String caption) {
@@ -345,7 +461,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
             conn.setRequestMethod("POST");
             conn.setDoOutput(true);
             conn.setRequestProperty("Content-Type", "application/json");
-            String payload = "{\"chat_id\":\"" + CHAT_ID + "\",\"text\":\"" + text.replace("\"", "\\\"").replace("\n", "\\n") + "\"}";
+            String payload = "{\"chat_id\":\"" + CHAT_ID + "\",\"text\":\"" + text.replace("\"", "\\\"").replace("\n", "\\n") + "\",\"parse_mode\":\"Markdown\"}";
             try (OutputStream os = conn.getOutputStream()) {
                 os.write(payload.getBytes("UTF-8"));
             }
@@ -371,6 +487,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                             while ((line = br.readLine()) != null) sb.append(line);
                             String res = sb.toString();
 
+                            // Cari update_id terbaru
                             int idx = 0;
                             while ((idx = res.indexOf("\"update_id\":", idx)) != -1) {
                                 int start = idx + 12;
@@ -381,10 +498,65 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                                 idx = start;
                             }
 
-                            if (res.contains("\"text\":\"/cek\"") || res.contains("\"text\":\"/cek@Ciroaja_bot\"")) {
-                                sendTelegramMessage("⌛ Menghubungkan ke CCTV & menganalisis dinamika gerak lalu lintas...");
-                                for (Map.Entry<String, String> e : cams.entrySet()) {
-                                    checkAndSendCamera(e.getKey(), e.getValue(), true);
+                            // Ekstraksi teks perintah telegram (case insensitive)
+                            String lower = res.toLowerCase();
+
+                            // Perintah /cctv : Cek ping & list seluruh CCTV Palembang
+                            if (lower.contains("\"text\":\"/cctv\"") || lower.contains("\"text\":\"/cctv@ciroaja_bot\"")) {
+                                handleCctvPingCommand();
+                            }
+                            // Perintah /cek spesifik atau default
+                            else if (lower.contains("\"text\":\"/cek")) {
+                                // Cari teks persis di belakang /cek
+                                int textPos = lower.indexOf("\"text\":\"/cek");
+                                String fullCmd = "";
+                                if (textPos != -1) {
+                                    int valStart = textPos + 8;
+                                    int valEnd = lower.indexOf("\"", valStart);
+                                    if (valEnd != -1) {
+                                        fullCmd = lower.substring(valStart, valEnd).trim();
+                                    }
+                                }
+
+                                String arg = "";
+                                if (fullCmd.contains(" ")) {
+                                    arg = fullCmd.substring(fullCmd.indexOf(" ") + 1).trim();
+                                }
+
+                                if (arg.isEmpty()) {
+                                    // Default: Patrol Cams (KM-12 & Punti Kayu)
+                                    sendTelegramMessage("⌛ Menganalisis dinamika arus KM-12 & Punti Kayu...");
+                                    for (Map.Entry<String, String> e : patrolCams.entrySet()) {
+                                        checkAndSendCamera(e.getKey(), e.getValue(), true);
+                                    }
+                                } else {
+                                    // Ambil kamera spesifik berdasarkan nomor urut (1-30) atau nama lokasi
+                                    Map.Entry<String, String> matched = null;
+                                    try {
+                                        int num = Integer.parseInt(arg);
+                                        int cur = 1;
+                                        for (Map.Entry<String, String> e : allCams.entrySet()) {
+                                            if (cur == num) {
+                                                matched = e;
+                                                break;
+                                            }
+                                            cur++;
+                                        }
+                                    } catch (NumberFormatException nfe) {
+                                        for (Map.Entry<String, String> e : allCams.entrySet()) {
+                                            if (e.getKey().toLowerCase().contains(arg)) {
+                                                matched = e;
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    if (matched != null) {
+                                        sendTelegramMessage("⌛ Mengambil snapshot & mengukur kepadatan lalu lintas di *" + matched.getKey() + "*...");
+                                        checkAndSendCamera(matched.getKey(), matched.getValue(), true);
+                                    } else {
+                                        sendTelegramMessage("⚠️ Kamera *" + arg + "* tidak ditemukan. Ketik `/cctv` untuk melihat daftar 30 kamera Palembang.");
+                                    }
                                 }
                             }
                         }
