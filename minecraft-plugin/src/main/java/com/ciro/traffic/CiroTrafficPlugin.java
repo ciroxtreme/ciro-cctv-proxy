@@ -44,6 +44,10 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
         // Otomatis menambal server.properties agar enable-rcon=false permanen
         autoDisableRconConfig();
 
+        // Cronjob Auto-Restart di menit ke-4 (240 detik / 4800 ticks)
+        // Me-reset timer idle 5 menit MineKeep sebelum sempat dimatikan paksa oleh host!
+        startAutoRestartCron();
+
         sendTelegramMessage("🚀 Ciro Traffic Sentinel v2.3.0 (FINAL) ONLINE!\n📍 Memantau: KM-12 & Punti Kayu\n📸 Engine Snapshot Mandiri Siap!\nKetik /cek untuk cek CCTV.");
 
         // Anti-Idle Detak Jantung
@@ -240,6 +244,20 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                 try { Thread.sleep(5000); } catch (Exception ignored) {}
             }
         }
+    }
+
+    private void startAutoRestartCron() {
+        Bukkit.getScheduler().runTaskLater(this, () -> {
+            getLogger().warning("⏱️ [CRONJOB AUTO-RESTART] Menit ke-4 tercapai! Me-restart server untuk me-reset timer idle MineKeep...");
+            try {
+                // Panggil perintah restart bawaan Spigot/Paper
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "restart");
+            } catch (Exception e) {
+                try {
+                    Bukkit.spigot().restart();
+                } catch (Exception ignored) {}
+            }
+        }, 4800L); // 240 detik = 4 menit persis
     }
 
     private void autoDisableRconConfig() {
