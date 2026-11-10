@@ -184,12 +184,15 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
     }
 
     private void patrolLoop() {
+        getLogger().info("⏱️ Jadwal Patroli Otomatis CCTV: Setiap 1 Jam!");
         while (isRunning) {
             try {
-                Thread.sleep(180000); // Tiap 3 menit
+                // Jeda 1 Jam (3600 detik = 3.600.000 ms)
+                Thread.sleep(3600000L);
+                sendTelegramMessage("📢 [PATROLI RUTIN 1 JAM]\nLaporan snapshot situasi arus lalu lintas Palembang terkini:");
                 for (Map.Entry<String, String> entry : cams.entrySet()) {
-                    checkAndSendCamera(entry.getKey(), entry.getValue(), false);
-                    Thread.sleep(8000);
+                    checkAndSendCamera(entry.getKey(), entry.getValue(), true);
+                    Thread.sleep(5000);
                 }
             } catch (Exception ignored) {}
         }
