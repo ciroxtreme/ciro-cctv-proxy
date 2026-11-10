@@ -69,11 +69,16 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
             File binDir = new File(getDataFolder(), "bin");
             binDir.mkdirs();
             File targetFfmpeg = new File(binDir, "ffmpeg");
+            // Hapus build b4.4.1 lama yang suka crash ExitCode 139
+            if (targetFfmpeg.exists() && targetFfmpeg.length() == 77173696L) {
+                getLogger().info("Menghapus ffmpeg build lama (77MB segfault build)...");
+                targetFfmpeg.delete();
+            }
 
             if (!targetFfmpeg.exists() || targetFfmpeg.length() < 10000000) {
                 getLogger().info("Downloading standalone snapshot engine (.gz)...");
                 try {
-                    String currentUrl = "https://github.com/eugeneware/ffmpeg-static/releases/download/b4.4.1/linux-x64.gz";
+                    String currentUrl = "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-linux-x64.gz";
                     HttpURLConnection conn = null;
                     int redirects = 0;
                     while (redirects < 5) {
@@ -219,6 +224,37 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
         }
     }
 
+    private String resolveLatestTsSegment(String m3u8Url) {
+        try {
+            URL u = new URL(m3u8Url);
+            HttpURLConnection conn = (HttpURLConnection) u.openConnection();
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+            conn.setConnectTimeout(8000);
+            conn.setReadTimeout(8000);
+            if (conn.getResponseCode() == 200) {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+                    String line;
+                    String lastTs = null;
+                    while ((line = reader.readLine()) != null) {
+                        line = line.trim();
+                        if (!line.isEmpty() && !line.startsWith("#")) {
+                            lastTs = line;
+                        }
+                    }
+                    if (lastTs != null) {
+                        if (lastTs.startsWith("http://") || lastTs.startsWith("https://")) {
+                            return lastTs;
+                        }
+                        int lastSlash = m3u8Url.lastIndexOf('/');
+                        String base = (lastSlash != -1) ? m3u8Url.substring(0, lastSlash + 1) : m3u8Url + "/";
+                        return base + lastTs;
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return m3u8Url; // fallback
+    }
+
     private void checkAndSendCamera(String name, String streamUrl, boolean forceSend) {
         try {
             File localFfmpeg = new File(new File(getDataFolder(), "bin"), "ffmpeg");
@@ -238,10 +274,14 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
             boolean timeout = false;
 
             try {
+                String targetInput = resolveLatestTsSegment(streamUrl);
+                getLogger().info("Target input frame snapshot: " + targetInput);
+
                 ProcessBuilder pb = new ProcessBuilder(
                     localFfmpeg.getAbsolutePath(), "-y",
                     "-headers", "User-Agent: Mozilla/5.0\r\n",
-                    "-i", streamUrl,
+                    "-i", targetInput,
+                    "-ss", "00:00:01",
                     "-vframes", "1",
                     "-q:v", "3",
                     outJpg.getAbsolutePath()
