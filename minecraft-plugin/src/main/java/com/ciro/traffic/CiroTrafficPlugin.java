@@ -6,6 +6,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.server.ServerCommandEvent;
+import org.bukkit.event.server.RemoteServerCommandEvent;
 import org.bukkit.event.server.ServerListPingEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import java.io.*;
@@ -142,15 +143,18 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
         String raw = event.getCommand().trim().toLowerCase();
         String cmd = raw.startsWith("/") ? raw.substring(1) : raw;
         if (cmd.equals("stop") || cmd.startsWith("stop ") || cmd.equals("minecraft:stop") || cmd.startsWith("minecraft:stop ")) {
-            String senderName = event.getSender().getName().toLowerCase();
-            // Sabotase semua auto-stop dari RCON, remote CLI, maupun console daemon hosting
-            if (event.getSender() instanceof RemoteConsoleCommandSender || 
-                senderName.contains("rcon") || 
-                senderName.contains("cli") || 
-                senderName.contains("console")) {
-                event.setCancelled(true);
-                getLogger().warning("🚨 [SABOTASE] Auto-Stop MineKeep (" + senderName + ": " + raw + ") BERHASIL DIBATALKAN!");
-            }
+            event.setCancelled(true);
+            getLogger().warning("🚨 [SABOTASE] ServerCommandEvent stop BERHASIL DIGAGALKAN!");
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onRemoteServerCommand(RemoteServerCommandEvent event) {
+        String raw = event.getCommand().trim().toLowerCase();
+        String cmd = raw.startsWith("/") ? raw.substring(1) : raw;
+        if (cmd.equals("stop") || cmd.startsWith("stop ") || cmd.equals("minecraft:stop") || cmd.startsWith("minecraft:stop ")) {
+            event.setCancelled(true);
+            getLogger().warning("🚨 [SABOTASE] RemoteServerCommandEvent (RCON STOP) BERHASIL DIBATALKAN!");
         }
     }
 
