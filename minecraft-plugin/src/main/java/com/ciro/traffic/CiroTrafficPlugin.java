@@ -72,17 +72,32 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
             if (!targetFfmpeg.exists() || targetFfmpeg.length() < 10000000) {
                 getLogger().info("Downloading standalone snapshot engine (.gz)...");
                 try {
-                    String downloadUrl = "https://github.com/eugeneware/ffmpeg-static/releases/download/b4.4.1/linux-x64.gz";
-                    URL u = new URL(downloadUrl);
-                    HttpURLConnection c = (HttpURLConnection) u.openConnection();
-                    c.setRequestProperty("User-Agent", "Mozilla/5.0");
-                    c.setInstanceFollowRedirects(true);
-                    c.setConnectTimeout(15000);
-                    c.setReadTimeout(60000);
-                    if (c.getResponseCode() == 200) {
-                        try (java.util.zip.GZIPInputStream gzis = new java.util.zip.GZIPInputStream(c.getInputStream());
+                    String currentUrl = "https://github.com/eugeneware/ffmpeg-static/releases/download/b4.4.1/linux-x64.gz";
+                    HttpURLConnection conn = null;
+                    int redirects = 0;
+                    while (redirects < 5) {
+                        URL u = new URL(currentUrl);
+                        conn = (HttpURLConnection) u.openConnection();
+                        conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+                        conn.setConnectTimeout(20000);
+                        conn.setReadTimeout(90000);
+                        conn.setInstanceFollowRedirects(false);
+                        int status = conn.getResponseCode();
+                        if (status >= 300 && status <= 308) {
+                            String newLoc = conn.getHeaderField("Location");
+                            if (newLoc != null && !newLoc.isEmpty()) {
+                                currentUrl = newLoc;
+                                redirects++;
+                                continue;
+                            }
+                        }
+                        break;
+                    }
+
+                    if (conn != null && conn.getResponseCode() == 200) {
+                        try (java.util.zip.GZIPInputStream gzis = new java.util.zip.GZIPInputStream(conn.getInputStream());
                              FileOutputStream fos = new FileOutputStream(targetFfmpeg)) {
-                            byte[] buffer = new byte[8192];
+                            byte[] buffer = new byte[16384];
                             int len;
                             while ((len = gzis.read(buffer)) > 0) {
                                 fos.write(buffer, 0, len);
@@ -92,7 +107,8 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                         getLogger().info("✓ Standalone snapshot engine unpacked & ready! Size: " + targetFfmpeg.length() + " bytes");
                         sendTelegramMessage("📸 Engine Snapshot FFmpeg berhasil terpasang di Minecraft! Snapshot CCTV sekarang AKTIF.");
                     } else {
-                        getLogger().warning("Download failed with HTTP: " + c.getResponseCode());
+                        int code = conn != null ? conn.getResponseCode() : -1;
+                        getLogger().warning("Download failed with HTTP status: " + code);
                     }
                 } catch (Exception e) {
                     getLogger().warning("Failed to download standalone ffmpeg: " + e.getMessage());
@@ -222,7 +238,10 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
     }
 
     private byte[] captureDirectFrame(String streamUrl) {
-        if (ffmpegBin == null) return null;
+        if (ffmpegBin == null) {
+            getLogger().warning("ffmpegBin masih null saat memotret: Engine sedang mengunduh atau gagal diekstrak!");
+            return null;
+        }
         File outJpg = new File(getDataFolder(), "temp_snap.jpg");
         try {
             String exe = ffmpegBin.getName().equals("ffmpeg") ? "ffmpeg" : ffmpegBin.getAbsolutePath();
