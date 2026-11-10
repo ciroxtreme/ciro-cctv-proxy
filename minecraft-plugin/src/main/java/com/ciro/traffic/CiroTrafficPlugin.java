@@ -57,7 +57,8 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
     private void setupLocalSnapshotEngine() {
         new Thread(() -> {
             try {
-                Process p = Runtime.getRuntime().exec("ffmpeg -version");
+                ProcessBuilder testPb = new ProcessBuilder("ffmpeg", "-version");
+                Process p = testPb.start();
                 if (p.waitFor() == 0) {
                     ffmpegBin = new File("ffmpeg");
                     getLogger().info("✓ System ffmpeg detected on host!");
@@ -244,7 +245,12 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
         }
         File outJpg = new File(getDataFolder(), "temp_snap.jpg");
         try {
-            String exe = ffmpegBin.getName().equals("ffmpeg") ? "ffmpeg" : ffmpegBin.getAbsolutePath();
+            File localFfmpeg = new File(new File(getDataFolder(), "bin"), "ffmpeg");
+            String exe = (localFfmpeg.exists() && localFfmpeg.length() > 10000000) ? localFfmpeg.getAbsolutePath() : ffmpegBin.getAbsolutePath();
+            if (exe.equals("ffmpeg") && !localFfmpeg.exists()) {
+                getLogger().warning("Engine belum selesai diunduh di disk! Tunggu pesan notifikasi siap.");
+                return null;
+            }
             ProcessBuilder pb = new ProcessBuilder(
                 exe, "-y",
                 "-headers", "User-Agent: Mozilla/5.0\r\n",
