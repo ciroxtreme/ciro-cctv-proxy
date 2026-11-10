@@ -8,6 +8,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.server.ServerCommandEvent;
 import org.bukkit.event.server.RemoteServerCommandEvent;
 import org.bukkit.event.server.ServerListPingEvent;
+import com.destroystokyo.paper.event.server.PaperServerListPingEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -162,6 +163,13 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
     public void onServerPing(ServerListPingEvent event) {
         event.setMaxPlayers(20);
         event.setMotd("§a● Ciro Traffic Sentinel §7[24/7 Active]");
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onPaperServerPing(PaperServerListPingEvent event) {
+        event.setMaxPlayers(20);
+        event.setNumPlayers(1); // Manipulasi ping status agar host MineKeep membaca: 1 Player Online!
+        event.setMotd("§a● Ciro Traffic Sentinel §7[Online 1/20]");
     }
 
     private void startCpuWaveGenerator() {
