@@ -8,7 +8,7 @@ const mineflayer = require('mineflayer');
 
 const HOST = process.env.MC_HOST || 'cirobro.play.hosting';
 const PORT = parseInt(process.env.MC_PORT || '25565', 10);
-const USERNAME = 'CiroGithubSentinel';
+const USERNAME = "CiroGhBot";
 const DURATION_MS = (parseInt(process.env.KEEPALIVE_MINUTES || '10', 10)) * 60 * 1000;
 
 console.log(`[Keeper] Memulai koneksi ke ${HOST}:${PORT} sebagai ${USERNAME}...`);
