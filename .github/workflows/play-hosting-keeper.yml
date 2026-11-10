@@ -2,9 +2,12 @@ name: Play.Hosting 24/7 Keeper (Azure Cloud IP)
 
 on:
   schedule:
-    # Berjalan tiap 5 menit otomatis via cron GitHub
-    - cron: '*/5 * * * *'
+    - cron: '*/20 * * * *'
   workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
 
 concurrency:
   group: play-hosting-keeper
@@ -13,7 +16,7 @@ concurrency:
 jobs:
   keepalive:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
 
     steps:
       - name: Checkout Repository
@@ -35,8 +38,16 @@ jobs:
 
       - name: Run Play.Hosting Minecraft Keeper (Direct Azure IP)
         run: |
-          # Durasi 6 menit per job (saling overlap dengan jadwal cron 5 menit agar tanpa jeda)
-          KEEPALIVE_MINUTES=6 node scripts/play_hosting_keeper.js
+          # Berdiri di game selama 23 menit
+          KEEPALIVE_MINUTES=23 node scripts/play_hosting_keeper.js
         env:
           MC_HOST: cirobro.play.hosting
           MC_PORT: 25565
+
+      - name: Self-Dispatch Next Keeper (Infinite Loop)
+        if: always()
+        run: |
+          echo "Regenerasi Runner Baru untuk estafet tanpa jeda..."
+          gh workflow run play-hosting-keeper.yml --repo ${{ github.repository }} || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
