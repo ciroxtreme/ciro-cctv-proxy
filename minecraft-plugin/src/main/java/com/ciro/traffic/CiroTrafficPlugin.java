@@ -200,18 +200,10 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
     }
 
     private String resolveLatestTsSegment(String m3u8Url) {
-        // Fallback coba index.m3u8 atau main_stream.m3u8
-        List<String> tryUrls = new ArrayList<>();
-        tryUrls.add(m3u8Url);
-        if (m3u8Url.contains("index.m3u8")) {
-            tryUrls.add(m3u8Url.replace("index.m3u8", "main_stream.m3u8"));
-        } else if (m3u8Url.contains("main_stream.m3u8")) {
-            tryUrls.add(m3u8Url.replace("main_stream.m3u8", "index.m3u8"));
-        }
-
-        for (String targetUrl : tryUrls) {
+        String currentUrl = m3u8Url;
+        for (int depth = 0; depth < 4; depth++) {
             try {
-                URL u = new URL(targetUrl);
+                URL u = new URL(currentUrl);
                 HttpURLConnection conn = (HttpURLConnection) u.openConnection();
                 conn.setRequestProperty("User-Agent", "Mozilla/5.0");
                 conn.setConnectTimeout(6000);
@@ -219,22 +211,35 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                 if (conn.getResponseCode() == 200) {
                     try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
                         String line;
-                        String lastTs = null;
+                        String lastTarget = null;
                         while ((line = reader.readLine()) != null) {
                             line = line.trim();
-                            if (!line.isEmpty() && !line.startsWith("#")) lastTs = line;
+                            if (!line.isEmpty() && !line.startsWith("#")) {
+                                lastTarget = line;
+                            }
                         }
-                        if (lastTs != null) {
-                            if (lastTs.startsWith("http://") || lastTs.startsWith("https://")) return lastTs;
-                            int lastSlash = targetUrl.lastIndexOf('/');
-                            String base = (lastSlash != -1) ? targetUrl.substring(0, lastSlash + 1) : targetUrl + "/";
-                            return base + lastTs;
+                        if (lastTarget != null) {
+                            String resolved;
+                            if (lastTarget.startsWith("http://") || lastTarget.startsWith("https://")) {
+                                resolved = lastTarget;
+                            } else {
+                                int lastSlash = currentUrl.lastIndexOf('/');
+                                String base = (lastSlash != -1) ? currentUrl.substring(0, lastSlash + 1) : currentUrl + "/";
+                                resolved = base + lastTarget;
+                            }
+
+                            if (resolved.endsWith(".m3u8")) {
+                                currentUrl = resolved;
+                                continue;
+                            }
+                            return resolved;
                         }
                     }
                 }
             } catch (Exception ignored) {}
+            break;
         }
-        return m3u8Url;
+        return currentUrl;
     }
 
     private double calculatePixelDelta(File f1, File f2) {
@@ -523,7 +528,9 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                                     arg = fullCmd.substring(fullCmd.indexOf(" ") + 1).trim();
                                 }
 
-                                if (arg.isEmpty()) {
+                                String normalizedArg = arg.replaceAll("[^a-zA-Z0-9]", "");
+
+                                if (normalizedArg.isEmpty()) {
                                     // Default: Patrol Cams (KM-12 & Punti Kayu)
                                     sendTelegramMessage("⌛ Menganalisis dinamika arus KM-12 & Punti Kayu...");
                                     for (Map.Entry<String, String> e : patrolCams.entrySet()) {
@@ -533,7 +540,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                                     // Ambil kamera spesifik berdasarkan nomor urut (1-30) atau nama lokasi
                                     Map.Entry<String, String> matched = null;
                                     try {
-                                        int num = Integer.parseInt(arg);
+                                        int num = Integer.parseInt(normalizedArg);
                                         int cur = 1;
                                         for (Map.Entry<String, String> e : allCams.entrySet()) {
                                             if (cur == num) {
@@ -544,7 +551,8 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                                         }
                                     } catch (NumberFormatException nfe) {
                                         for (Map.Entry<String, String> e : allCams.entrySet()) {
-                                            if (e.getKey().toLowerCase().contains(arg)) {
+                                            String cleanKey = e.getKey().toLowerCase().replaceAll("[^a-zA-Z0-9]", "");
+                                            if (cleanKey.contains(normalizedArg) || normalizedArg.contains(cleanKey)) {
                                                 matched = e;
                                                 break;
                                             }
