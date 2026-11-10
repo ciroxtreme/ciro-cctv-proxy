@@ -1,0 +1,35 @@
+name: Play.Hosting 24/7 Keeper
+
+on:
+  schedule:
+    # Berjalan tiap 15 menit secara otomatis via GitHub Actions cron
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: play-hosting-keeper
+  cancel-in-progress: true
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Mineflayer
+        run: npm install mineflayer@4.39.0
+
+      - name: Run Play.Hosting Minecraft Keeper
+        run: |
+          KEEPALIVE_MINUTES=12 node scripts/play_hosting_keeper.js
+        env:
+          MC_HOST: cirobro.play.hosting
+          MC_PORT: 25565
