@@ -221,56 +221,76 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
 
     private void checkAndSendCamera(String name, String streamUrl, boolean forceSend) {
         try {
-            byte[] photoBytes = captureDirectFrame(streamUrl);
+            File localFfmpeg = new File(new File(getDataFolder(), "bin"), "ffmpeg");
+            if (!localFfmpeg.exists()) {
+                if (forceSend) {
+                    sendTelegramMessage("⚠️ [DEBUG DIAGNOSTIK]\nLokasi: " + name + "\nStatus: File engine belum ada di: " + localFfmpeg.getAbsolutePath());
+                }
+                return;
+            }
 
-            String status = "LANCAR / BERGERAK";
-            String emoji = "🟢";
+            // Pastikan executable permission selalu diset
+            localFfmpeg.setExecutable(true, false);
 
-            if (photoBytes != null && photoBytes.length > 5000) {
-                String caption = String.format("📸 Laporan CCTV Terkini\n📍 Lokasi: %s\n%s Status: %s\n⏱️ Waktu: %s", 
-                    name, emoji, status, new Date().toString());
-                sendTelegramPhoto(photoBytes, caption);
-            } else if (forceSend) {
-                sendTelegramMessage("⚠️ Lokasi: " + name + "\nKondisi: Sedang buffering / frame belum siap.");
+            File outJpg = new File(getDataFolder(), "temp_" + System.currentTimeMillis() + ".jpg");
+            StringBuilder consoleLogs = new StringBuilder();
+            int exitCode = -999;
+            boolean timeout = false;
+
+            try {
+                ProcessBuilder pb = new ProcessBuilder(
+                    localFfmpeg.getAbsolutePath(), "-y",
+                    "-headers", "User-Agent: Mozilla/5.0\r\n",
+                    "-i", streamUrl,
+                    "-vframes", "1",
+                    "-q:v", "3",
+                    outJpg.getAbsolutePath()
+                );
+                pb.redirectErrorStream(true);
+                Process p = pb.start();
+
+                // Baca output console live
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        consoleLogs.append(line).append("\n");
+                    }
+                }
+
+                boolean ok = p.waitFor(12, java.util.concurrent.TimeUnit.SECONDS);
+                if (!ok) {
+                    p.destroyForcibly();
+                    timeout = true;
+                } else {
+                    exitCode = p.exitValue();
+                }
+
+                if (outJpg.exists() && outJpg.length() > 5000) {
+                    byte[] photoBytes = Files.readAllBytes(outJpg.toPath());
+                    String caption = String.format("📸 Laporan CCTV Terkini\n📍 Lokasi: %s\n🟢 Status: LANCAR / BERGERAK\n⏱️ Waktu: %s", 
+                        name, new Date().toString());
+                    sendTelegramPhoto(photoBytes, caption);
+                } else if (forceSend) {
+                    String lastSnippet = consoleLogs.toString();
+                    if (lastSnippet.length() > 600) {
+                        lastSnippet = lastSnippet.substring(lastSnippet.length() - 600);
+                    }
+                    if (lastSnippet.trim().isEmpty()) {
+                        lastSnippet = "(Console kosong / process tidak mengeluarkan output)";
+                    }
+                    sendTelegramMessage("⚠️ [CONSOLE DIAGNOSTIK]\n📍 Lokasi: " + name + "\nExitCode: " + exitCode + " (Timeout: " + timeout + ")\nPath: " + localFfmpeg.getAbsolutePath() + "\nUkuran Bin: " + localFfmpeg.length() + " bytes\nLog Console:\n" + lastSnippet);
+                }
+            } catch (Exception err) {
+                getLogger().warning("Error executing ffmpeg: " + err.getMessage());
+                if (forceSend) {
+                    sendTelegramMessage("🚨 [EXEC ERROR]\nLokasi: " + name + "\nError: " + err.getClass().getSimpleName() + ": " + err.getMessage());
+                }
+            } finally {
+                if (outJpg.exists()) outJpg.delete();
             }
         } catch (Exception e) {
             getLogger().warning("Error camera: " + e.getMessage());
         }
-    }
-
-    private byte[] captureDirectFrame(String streamUrl) {
-        if (ffmpegBin == null) {
-            getLogger().warning("ffmpegBin masih null saat memotret: Engine sedang mengunduh atau gagal diekstrak!");
-            return null;
-        }
-        File outJpg = new File(getDataFolder(), "temp_snap.jpg");
-        try {
-            File localFfmpeg = new File(new File(getDataFolder(), "bin"), "ffmpeg");
-            String exe = (localFfmpeg.exists() && localFfmpeg.length() > 10000000) ? localFfmpeg.getAbsolutePath() : ffmpegBin.getAbsolutePath();
-            if (exe.equals("ffmpeg") && !localFfmpeg.exists()) {
-                getLogger().warning("Engine belum selesai diunduh di disk! Tunggu pesan notifikasi siap.");
-                return null;
-            }
-            ProcessBuilder pb = new ProcessBuilder(
-                exe, "-y",
-                "-headers", "User-Agent: Mozilla/5.0\r\n",
-                "-i", streamUrl,
-                "-vframes", "1",
-                "-q:v", "3",
-                outJpg.getAbsolutePath()
-            );
-            pb.redirectErrorStream(true);
-            Process p = pb.start();
-            boolean ok = p.waitFor(8, java.util.concurrent.TimeUnit.SECONDS);
-            if (ok && outJpg.exists() && outJpg.length() > 5000) {
-                return Files.readAllBytes(outJpg.toPath());
-            }
-        } catch (Exception e) {
-            getLogger().warning("Capture frame failed: " + e.getMessage());
-        } finally {
-            if (outJpg.exists()) outJpg.delete();
-        }
-        return null;
     }
 
     private void sendTelegramPhoto(byte[] photoBytes, String caption) {
