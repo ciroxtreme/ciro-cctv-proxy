@@ -268,19 +268,43 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
             // Pastikan executable permission selalu diset
             localFfmpeg.setExecutable(true, false);
 
-            File outJpg = new File(getDataFolder(), "temp_" + System.currentTimeMillis() + ".jpg");
+            File localTsFile = new File(getDataFolder(), "chunk_" + System.currentTimeMillis() + ".ts");
+            File outJpg = new File(getDataFolder(), "snap_" + System.currentTimeMillis() + ".jpg");
             StringBuilder consoleLogs = new StringBuilder();
             int exitCode = -999;
             boolean timeout = false;
 
             try {
-                String targetInput = resolveLatestTsSegment(streamUrl);
-                getLogger().info("Target input frame snapshot: " + targetInput);
+                // 1. Download chunk video .ts secara lokal menggunakan Java HTTP (Aman dari crash segfault network)
+                String tsUrl = resolveLatestTsSegment(streamUrl);
+                getLogger().info("Downloading TS segment via Java HTTP: " + tsUrl);
+                
+                URL u = new URL(tsUrl);
+                HttpURLConnection conn = (HttpURLConnection) u.openConnection();
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+                conn.setConnectTimeout(10000);
+                conn.setReadTimeout(15000);
+                
+                if (conn.getResponseCode() == 200) {
+                    try (InputStream in = conn.getInputStream();
+                         FileOutputStream fos = new FileOutputStream(localTsFile)) {
+                        byte[] buf = new byte[16384];
+                        int n;
+                        while ((n = in.read(buf)) > 0) {
+                            fos.write(buf, 0, n);
+                        }
+                    }
+                } else {
+                    if (forceSend) {
+                        sendTelegramMessage("⚠️ [TS FETCH FAILED]\nLokasi: " + name + "\nHTTP Code: " + conn.getResponseCode());
+                    }
+                    return;
+                }
 
+                // 2. Decode file lokal .ts ke .jpg murni offline tanpa network sama sekali!
                 ProcessBuilder pb = new ProcessBuilder(
                     localFfmpeg.getAbsolutePath(), "-y",
-                    "-headers", "User-Agent: Mozilla/5.0\r\n",
-                    "-i", targetInput,
+                    "-i", localTsFile.getAbsolutePath(),
                     "-ss", "00:00:01",
                     "-vframes", "1",
                     "-q:v", "3",
@@ -289,7 +313,6 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                 pb.redirectErrorStream(true);
                 Process p = pb.start();
 
-                // Baca output console live
                 try (BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
                     String line;
                     while ((line = br.readLine()) != null) {
@@ -297,7 +320,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                     }
                 }
 
-                boolean ok = p.waitFor(12, java.util.concurrent.TimeUnit.SECONDS);
+                boolean ok = p.waitFor(10, java.util.concurrent.TimeUnit.SECONDS);
                 if (!ok) {
                     p.destroyForcibly();
                     timeout = true;
@@ -305,7 +328,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                     exitCode = p.exitValue();
                 }
 
-                if (outJpg.exists() && outJpg.length() > 5000) {
+                if (outJpg.exists() && outJpg.length() > 3000) {
                     byte[] photoBytes = Files.readAllBytes(outJpg.toPath());
                     String caption = String.format("📸 Laporan CCTV Terkini\n📍 Lokasi: %s\n🟢 Status: LANCAR / BERGERAK\n⏱️ Waktu: %s", 
                         name, new Date().toString());
@@ -318,14 +341,15 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                     if (lastSnippet.trim().isEmpty()) {
                         lastSnippet = "(Console kosong / process tidak mengeluarkan output)";
                     }
-                    sendTelegramMessage("⚠️ [CONSOLE DIAGNOSTIK]\n📍 Lokasi: " + name + "\nExitCode: " + exitCode + " (Timeout: " + timeout + ")\nPath: " + localFfmpeg.getAbsolutePath() + "\nUkuran Bin: " + localFfmpeg.length() + " bytes\nLog Console:\n" + lastSnippet);
+                    sendTelegramMessage("⚠️ [CONSOLE DIAGNOSTIK]\n📍 Lokasi: " + name + "\nExitCode: " + exitCode + " (Timeout: " + timeout + ")\nTS Size: " + localTsFile.length() + " bytes\nLog Console:\n" + lastSnippet);
                 }
             } catch (Exception err) {
-                getLogger().warning("Error executing ffmpeg: " + err.getMessage());
+                getLogger().warning("Error executing snapshot: " + err.getMessage());
                 if (forceSend) {
                     sendTelegramMessage("🚨 [EXEC ERROR]\nLokasi: " + name + "\nError: " + err.getClass().getSimpleName() + ": " + err.getMessage());
                 }
             } finally {
+                if (localTsFile.exists()) localTsFile.delete();
                 if (outJpg.exists()) outJpg.delete();
             }
         } catch (Exception e) {
