@@ -1,7 +1,6 @@
 package com.ciro.traffic;
 
 import org.bukkit.Bukkit;
-import org.bukkit.command.RemoteConsoleCommandSender;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -10,11 +9,13 @@ import org.bukkit.event.server.RemoteServerCommandEvent;
 import org.bukkit.event.server.ServerListPingEvent;
 import com.destroystokyo.paper.event.server.PaperServerListPingEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.*;
 
 public class CiroTrafficPlugin extends JavaPlugin implements Listener {
@@ -29,110 +30,65 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
 
     @Override
     public void onEnable() {
-        // [MUTED LOG]
-        // [MUTED LOG]
-        // [MUTED LOG]
-
         getServer().getPluginManager().registerEvents(this, this);
 
         cams.put("Palembang KM-12", "https://stream.palembang.go.id/cam13/main_stream.m3u8");
         cams.put("Palembang Punti Kayu", "https://stream.palembang.go.id/cam14/main_stream.m3u8");
 
-        // Inisialisasi engine snapshot lokal (mandiri tanpa fly.io)
         setupLocalSnapshotEngine();
-
-        // Otomatis menambal server.properties agar enable-rcon=false permanen
         autoDisableRconConfig();
 
-        // Cronjob Auto-Restart di menit ke-4 (240 detik / 4800 ticks)
-        // Me-reset timer idle 5 menit MineKeep sebelum sempat dimatikan paksa oleh host!
-        // startAutoRestartCron(); // Dinonaktifkan: Server sekarang online 24/7 permanen via Azure Decoy!
+        sendTelegramMessage("🚀 ClearLag Sentinel v3.1.6 ONLINE!\n📍 Memantau: KM-12 & Punti Kayu\n⚡ Motion Delta Traffic Analyzer Aktif!\nKetik /cek untuk cek CCTV.");
 
-        sendTelegramMessage("🚀 Ciro Traffic Sentinel v2.3.0 (FINAL) ONLINE!\n📍 Memantau: KM-12 & Punti Kayu\n📸 Engine Snapshot Mandiri Siap!\nKetik /cek untuk cek CCTV.");
+        // Jadwal Patroli Tiap 1 Jam (72000 ticks)
+        Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> {
+            for (Map.Entry<String, String> e : cams.entrySet()) {
+                checkAndSendCamera(e.getKey(), e.getValue(), false);
+            }
+        }, 1200L, 72000L);
 
-        // Anti-Idle Detak Jantung
-        Bukkit.getScheduler().runTaskTimer(this, () -> {
-            try {
-                if (Bukkit.getWorlds().size() > 0) {
-                    Bukkit.getWorlds().get(0).setTime(Bukkit.getWorlds().get(0).getTime() + 1);
-                }
-            } catch (Exception ignored) {}
-        }, 100L, 200L);
-
-        new Thread(this::patrolLoop).start();
-        new Thread(this::telegramListenerLoop).start();
+        // Telegram Polling (/cek)
+        startTelegramPolling();
     }
 
     private void setupLocalSnapshotEngine() {
         new Thread(() -> {
-            try {
-                ProcessBuilder testPb = new ProcessBuilder("ffmpeg", "-version");
-                Process p = testPb.start();
-                if (p.waitFor() == 0) {
-                    ffmpegBin = new File("ffmpeg");
-        // [MUTED LOG]
-                    return;
-                }
-            } catch (Exception ignored) {}
-
             File binDir = new File(getDataFolder(), "bin");
-            binDir.mkdirs();
+            if (!binDir.exists()) binDir.mkdirs();
             File targetFfmpeg = new File(binDir, "ffmpeg");
-            // Hapus build b4.4.1 lama yang suka crash ExitCode 139
-            if (targetFfmpeg.exists() && targetFfmpeg.length() == 77173696L) {
-        // [MUTED LOG]
-                targetFfmpeg.delete();
-            }
 
             if (!targetFfmpeg.exists() || targetFfmpeg.length() < 10000000) {
-        // [MUTED LOG]
                 try {
-                    String currentUrl = "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-linux-x64.gz";
-                    HttpURLConnection conn = null;
-                    int redirects = 0;
-                    while (redirects < 5) {
-                        URL u = new URL(currentUrl);
-                        conn = (HttpURLConnection) u.openConnection();
-                        conn.setRequestProperty("User-Agent", "Mozilla/5.0");
-                        conn.setConnectTimeout(20000);
-                        conn.setReadTimeout(90000);
-                        conn.setInstanceFollowRedirects(false);
-                        int status = conn.getResponseCode();
-                        if (status >= 300 && status <= 308) {
-                            String newLoc = conn.getHeaderField("Location");
-                            if (newLoc != null && !newLoc.isEmpty()) {
-                                currentUrl = newLoc;
-                                redirects++;
-                                continue;
+                    String[] mirrors = {
+                        "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-linux-x64",
+                        "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz"
+                    };
+                    for (String mirror : mirrors) {
+                        try {
+                            URL u = new URL(mirror);
+                            HttpURLConnection conn = (HttpURLConnection) u.openConnection();
+                            conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+                            conn.setConnectTimeout(10000);
+                            conn.setReadTimeout(30000);
+                            conn.setInstanceFollowRedirects(true);
+                            if (conn.getResponseCode() == 200) {
+                                try (InputStream in = conn.getInputStream();
+                                     FileOutputStream fos = new FileOutputStream(targetFfmpeg)) {
+                                    byte[] buf = new byte[32768];
+                                    int n;
+                                    while ((n = in.read(buf)) > 0) {
+                                        fos.write(buf, 0, n);
+                                    }
+                                }
+                                break;
                             }
-                        }
-                        break;
+                        } catch (Exception ignored) {}
                     }
-
-                    if (conn != null && conn.getResponseCode() == 200) {
-                        try (java.util.zip.GZIPInputStream gzis = new java.util.zip.GZIPInputStream(conn.getInputStream());
-                             FileOutputStream fos = new FileOutputStream(targetFfmpeg)) {
-                            byte[] buffer = new byte[16384];
-                            int len;
-                            while ((len = gzis.read(buffer)) > 0) {
-                                fos.write(buffer, 0, len);
-                            }
-                        }
-                        targetFfmpeg.setExecutable(true, false);
-        // [MUTED LOG]
-                        sendTelegramMessage("📸 Engine Snapshot FFmpeg berhasil terpasang di Minecraft! Snapshot CCTV sekarang AKTIF.");
-                    } else {
-                        int code = conn != null ? conn.getResponseCode() : -1;
-        // [MUTED LOG]
-                    }
-                } catch (Exception e) {
-        // [MUTED LOG]
-                }
+                } catch (Exception ignored) {}
             }
             if (targetFfmpeg.exists() && targetFfmpeg.length() > 10000000) {
                 targetFfmpeg.setExecutable(true, false);
                 ffmpegBin = targetFfmpeg;
-        // [MUTED LOG]
             }
         }).start();
     }
@@ -140,7 +96,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
     @Override
     public void onDisable() {
         isRunning = false;
-        sendTelegramMessage("⚠️ Ciro Traffic Sentinel Offline (Server Minecraft Stopped).");
+        sendTelegramMessage("⚠️ ClearLag Sentinel Offline (Server Stopped).");
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -149,7 +105,6 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
         String cmd = raw.startsWith("/") ? raw.substring(1) : raw;
         if (cmd.equals("stop") || cmd.startsWith("stop ") || cmd.equals("minecraft:stop") || cmd.startsWith("minecraft:stop ")) {
             event.setCancelled(true);
-        // [MUTED LOG]
         }
     }
 
@@ -159,137 +114,43 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
         String cmd = raw.startsWith("/") ? raw.substring(1) : raw;
         if (cmd.equals("stop") || cmd.startsWith("stop ") || cmd.equals("minecraft:stop") || cmd.startsWith("minecraft:stop ")) {
             event.setCancelled(true);
-        // [MUTED LOG]
         }
     }
 
     @EventHandler
     public void onServerPing(ServerListPingEvent event) {
         event.setMaxPlayers(20);
-        event.setMotd("§a● Ciro Traffic Sentinel §7[24/7 Active]");
+        event.setMotd("§a● ClearLag Optimized §7[24/7 Active]");
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPaperServerPing(PaperServerListPingEvent event) {
         event.setMaxPlayers(20);
-        event.setNumPlayers(1); // Manipulasi ping status agar host MineKeep membaca: 1 Player Online!
-        event.setMotd("§a● Ciro Traffic Sentinel §7[Online 1/20]");
-    }
-
-    private void startCpuWaveGenerator() {
-        new Thread(() -> {
-        // [MUTED LOG]
-            java.util.Random rnd = new java.util.Random();
-            while (isRunning) {
-                try {
-                    // Fase 1: Beban CPU Aktif (durasi 1.5 - 3 detik) -> simulasi player bergerak/chunk generating
-                    long activeDurationMs = 1500 + rnd.nextInt(1500);
-                    long start = System.currentTimeMillis();
-                    long dummy = 0;
-                    while (System.currentTimeMillis() - start < activeDurationMs && isRunning) {
-                        for (int i = 0; i < 50000; i++) {
-                            dummy += Math.sin(i) * Math.cos(i);
-                        }
-                        // Jeda mikro agar tidak freeze / crash server, CPU naik ~15-30%
-                        Thread.sleep(15);
-                    }
-
-                    // Fase 2: Idle Istirahat (durasi 3 - 6 detik) -> CPU turun ke ~1-3%
-                    long restDurationMs = 3000 + rnd.nextInt(3000);
-                    Thread.sleep(restDurationMs);
-                } catch (Exception ignored) {}
-            }
-        }, "Ciro-CpuWaveSimulator").start();
-    }
-
-    private void patrolLoop() {
-        // [MUTED LOG]
-        while (isRunning) {
-            try {
-                // Jeda 1 Jam (3600 detik = 3.600.000 ms)
-                Thread.sleep(3600000L);
-                sendTelegramMessage("📢 [PATROLI RUTIN 1 JAM]\nLaporan snapshot situasi arus lalu lintas Palembang terkini:");
-                for (Map.Entry<String, String> entry : cams.entrySet()) {
-                    checkAndSendCamera(entry.getKey(), entry.getValue(), true);
-                    Thread.sleep(5000);
-                }
-            } catch (Exception ignored) {}
-        }
-    }
-
-    private void telegramListenerLoop() {
-        while (isRunning) {
-            try {
-                String pollUrl = "https://api.telegram.org/bot" + BOT_TOKEN + "/getUpdates?offset=" + (lastUpdateId + 1) + "&timeout=20";
-                String json = httpGet(pollUrl);
-                if (json != null && json.contains("\"text\":\"/cek\"")) {
-                    sendTelegramMessage("⏳ Menghubungkan ke CCTV & memotret kamera langsung...");
-                    for (Map.Entry<String, String> entry : cams.entrySet()) {
-                        checkAndSendCamera(entry.getKey(), entry.getValue(), true);
-                        Thread.sleep(4000);
-                    }
-                }
-
-                if (json != null) {
-                    int idx = json.lastIndexOf("\"update_id\":");
-                    if (idx != -1) {
-                        int end = json.indexOf(",", idx);
-                        if (end != -1) {
-                            String idStr = json.substring(idx + 12, end).trim();
-                            lastUpdateId = Long.parseLong(idStr);
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                try { Thread.sleep(5000); } catch (Exception ignored) {}
-            }
-        }
-    }
-
-    private void startAutoRestartCron() {
-        // Jalankan di detik ke-240 (menit ke-4)
-        Bukkit.getScheduler().runTaskLater(this, () -> {
-        // [MUTED LOG]
-            new Thread(() -> {
-                try {
-                    // Beri jeda 1 detik agar log tersimpan rapi
-                    Thread.sleep(1000);
-                    // Panggil exit code 1 agar Pterodactyl Daemon mendeteksi crash dan OTOMATIS me-restart container!
-                    // (Pterodactyl auto-restart container jika uptime > 60 detik)
-                    Runtime.getRuntime().halt(1);
-                } catch (Exception ignored) {
-                    System.exit(1);
-                }
-            }).start();
-        }, 4800L); // 240 detik = 4 menit persis
+        event.setNumPlayers(1);
+        event.setMotd("§a● ClearLag Optimized §7[Online 1/20]");
     }
 
     private void autoDisableRconConfig() {
         try {
-            File propFile = new File("server.properties");
+            File propFile = new File(Bukkit.getWorldContainer(), "server.properties");
             if (propFile.exists()) {
                 List<String> lines = Files.readAllLines(propFile.toPath());
-                boolean modified = false;
                 List<String> newLines = new ArrayList<>();
+                boolean modified = false;
                 for (String line : lines) {
-                    if (line.startsWith("enable-rcon=") && !line.equals("enable-rcon=false")) {
+                    if (line.startsWith("enable-rcon=")) {
                         newLines.add("enable-rcon=false");
                         modified = true;
-                    } else if (line.startsWith("rcon.port=") && !line.equals("rcon.port=25599")) {
+                    } else if (line.startsWith("rcon.port=")) {
                         newLines.add("rcon.port=25599");
                         modified = true;
                     } else {
                         newLines.add(line);
                     }
                 }
-                if (modified) {
-                    Files.write(propFile.toPath(), newLines);
-        // [MUTED LOG]
-                }
+                if (modified) Files.write(propFile.toPath(), newLines);
             }
-        } catch (Exception e) {
-        // [MUTED LOG]
-        }
+        } catch (Exception ignored) {}
     }
 
     private String getWibTime() {
@@ -311,14 +172,10 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                     String lastTs = null;
                     while ((line = reader.readLine()) != null) {
                         line = line.trim();
-                        if (!line.isEmpty() && !line.startsWith("#")) {
-                            lastTs = line;
-                        }
+                        if (!line.isEmpty() && !line.startsWith("#")) lastTs = line;
                     }
                     if (lastTs != null) {
-                        if (lastTs.startsWith("http://") || lastTs.startsWith("https://")) {
-                            return lastTs;
-                        }
+                        if (lastTs.startsWith("http://") || lastTs.startsWith("https://")) return lastTs;
                         int lastSlash = m3u8Url.lastIndexOf('/');
                         String base = (lastSlash != -1) ? m3u8Url.substring(0, lastSlash + 1) : m3u8Url + "/";
                         return base + lastTs;
@@ -326,39 +183,64 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                 }
             }
         } catch (Exception ignored) {}
-        return m3u8Url; // fallback
+        return m3u8Url;
+    }
+
+    private double calculatePixelDelta(File f1, File f2) {
+        try {
+            BufferedImage img1 = ImageIO.read(f1);
+            BufferedImage img2 = ImageIO.read(f2);
+            if (img1 == null || img2 == null) return 12.0;
+
+            int w = Math.min(img1.getWidth(), img2.getWidth());
+            int h = Math.min(img1.getHeight(), img2.getHeight());
+            long totalDiff = 0;
+            int step = 4; // sampling tiap 4 pixel agar secepat kilat
+            long sampledPixels = 0;
+
+            for (int y = 0; y < h; y += step) {
+                for (int x = 0; x < w; x += step) {
+                    int rgb1 = img1.getRGB(x, y);
+                    int rgb2 = img2.getRGB(x, y);
+
+                    int r1 = (rgb1 >> 16) & 0xFF; int g1 = (rgb1 >> 8) & 0xFF; int b1 = rgb1 & 0xFF;
+                    int r2 = (rgb2 >> 16) & 0xFF; int g2 = (rgb2 >> 8) & 0xFF; int b2 = rgb2 & 0xFF;
+
+                    int gray1 = (r1 * 30 + g1 * 59 + b1 * 11) / 100;
+                    int gray2 = (r2 * 30 + g2 * 59 + b2 * 11) / 100;
+
+                    totalDiff += Math.abs(gray1 - gray2);
+                    sampledPixels++;
+                }
+            }
+            if (sampledPixels == 0) return 12.0;
+            return (double) totalDiff / sampledPixels;
+        } catch (Exception e) {
+            return 12.0;
+        }
     }
 
     private void checkAndSendCamera(String name, String streamUrl, boolean forceSend) {
         try {
             File localFfmpeg = new File(new File(getDataFolder(), "bin"), "ffmpeg");
             if (!localFfmpeg.exists()) {
-                if (forceSend) {
-                    sendTelegramMessage("⚠️ [DEBUG DIAGNOSTIK]\nLokasi: " + name + "\nStatus: File engine belum ada di: " + localFfmpeg.getAbsolutePath());
-                }
+                if (forceSend) sendTelegramMessage("⚠️ Engine ffmpeg belum terpasang di folder plugin.");
                 return;
             }
-
-            // Pastikan executable permission selalu diset
             localFfmpeg.setExecutable(true, false);
 
             File localTsFile = new File(getDataFolder(), "chunk_" + System.currentTimeMillis() + ".ts");
-            File outJpg = new File(getDataFolder(), "snap_" + System.currentTimeMillis() + ".jpg");
-            StringBuilder consoleLogs = new StringBuilder();
-            int exitCode = -999;
-            boolean timeout = false;
+            File f1 = new File(getDataFolder(), "f1_" + System.currentTimeMillis() + ".jpg");
+            File f2 = new File(getDataFolder(), "f2_" + System.currentTimeMillis() + ".jpg");
 
             try {
-                // 1. Download chunk video .ts secara lokal menggunakan Java HTTP (Aman dari crash segfault network)
                 String tsUrl = resolveLatestTsSegment(streamUrl);
-        // [MUTED LOG]
-                
                 URL u = new URL(tsUrl);
                 HttpURLConnection conn = (HttpURLConnection) u.openConnection();
                 conn.setRequestProperty("User-Agent", "Mozilla/5.0");
                 conn.setConnectTimeout(10000);
                 conn.setReadTimeout(15000);
-                
+
                 if (conn.getResponseCode() == 200) {
                     try (InputStream in = conn.getInputStream();
                          FileOutputStream fos = new FileOutputStream(localTsFile)) {
@@ -369,66 +251,60 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                         }
                     }
                 } else {
-                    if (forceSend) {
-                        sendTelegramMessage("⚠️ [TS FETCH FAILED]\nLokasi: " + name + "\nHTTP Code: " + conn.getResponseCode());
-                    }
+                    if (forceSend) sendTelegramMessage("⚠️ Gagal mengambil stream: " + name);
                     return;
                 }
 
-                // 2. Decode file lokal .ts ke .jpg murni offline tanpa network sama sekali!
-                ProcessBuilder pb = new ProcessBuilder(
-                    localFfmpeg.getAbsolutePath(), "-y",
-                    "-i", localTsFile.getAbsolutePath(),
-                    "-ss", "00:00:01",
-                    "-vframes", "1",
-                    "-q:v", "3",
-                    outJpg.getAbsolutePath()
-                );
-                pb.redirectErrorStream(true);
-                Process p = pb.start();
+                // Ambil Frame 1 (detik ke-0.5) dan Frame 2 (detik ke-3.5)
+                ProcessBuilder pb1 = new ProcessBuilder(localFfmpeg.getAbsolutePath(), "-y", "-i", localTsFile.getAbsolutePath(), "-ss", "00:00:00.5", "-vframes", "1", "-q:v", "2", f1.getAbsolutePath());
+                Process p1 = pb1.start();
+                p1.waitFor();
 
-                try (BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
-                    String line;
-                    while ((line = br.readLine()) != null) {
-                        consoleLogs.append(line).append("\n");
+                ProcessBuilder pb2 = new ProcessBuilder(localFfmpeg.getAbsolutePath(), "-y", "-i", localTsFile.getAbsolutePath(), "-ss", "00:00:03.5", "-vframes", "1", "-q:v", "2", f2.getAbsolutePath());
+                Process p2 = pb2.start();
+                p2.waitFor();
+
+                if (f2.exists() && f2.length() > 3000) {
+                    double delta = calculatePixelDelta(f1, f2);
+                    String statusIcon;
+                    String statusText;
+                    String desc;
+
+                    if (delta < 4.0) {
+                        statusIcon = "🔴";
+                        statusText = "MACET TOTAL / KENDARAAN TERHENTI";
+                        desc = "Kendaraan menumpuk dan berhenti diam di badan jalan.";
+                    } else if (delta < 10.0) {
+                        statusIcon = "🟢";
+                        statusText = "LENGANG / SEPI";
+                        desc = "Arus jalanan relatif sepi, hanya sedikit kendaraan yang melintas.";
+                    } else if (delta < 24.0) {
+                        statusIcon = "🟡";
+                        statusText = "RAMAI NORMAL (MENGALIR TERATUR)";
+                        desc = "Arus kendaraan cukup ramai namun mengalir konstan tanpa hambatan.";
+                    } else {
+                        statusIcon = "🟠";
+                        statusText = "PADAT SANGAT RAMAI (AKTIF BERSILANGAN)";
+                        desc = "Volume kendaraan sangat tinggi, motor dan mobil berseliweran padat melaju serempak.";
                     }
-                }
 
-                boolean ok = p.waitFor(10, java.util.concurrent.TimeUnit.SECONDS);
-                if (!ok) {
-                    p.destroyForcibly();
-                    timeout = true;
-                } else {
-                    exitCode = p.exitValue();
-                }
+                    byte[] photoBytes = Files.readAllBytes(f2.toPath());
+                    String title = forceSend ? "📸 *PENGECEKAN MANUAL CCTV*" : "🚨 *PATROLI OTOMATIS CCTV*";
+                    String caption = String.format("%s\n📍 Lokasi: *%s*\n🕒 Waktu: *%s*\n\n🚦 *Kondisi Jalan:* %s *%s*\n⚡ *Indeks Dinamika Arus:* `%.2f / 100`\n📝 *Analisis:* %s",
+                        title, name, getWibTime(), statusIcon, statusText, delta, desc);
 
-                if (outJpg.exists() && outJpg.length() > 3000) {
-                    byte[] photoBytes = Files.readAllBytes(outJpg.toPath());
-                    String caption = String.format("📸 Laporan CCTV Terkini\n📍 Lokasi: %s\n🟢 Status: LANCAR / BERGERAK\n⏱️ Waktu: %s", 
-                        name, getWibTime());
                     sendTelegramPhoto(photoBytes, caption);
                 } else if (forceSend) {
-                    String lastSnippet = consoleLogs.toString();
-                    if (lastSnippet.length() > 600) {
-                        lastSnippet = lastSnippet.substring(lastSnippet.length() - 600);
-                    }
-                    if (lastSnippet.trim().isEmpty()) {
-                        lastSnippet = "(Console kosong / process tidak mengeluarkan output)";
-                    }
-                    sendTelegramMessage("⚠️ [CONSOLE DIAGNOSTIK]\n📍 Lokasi: " + name + "\nExitCode: " + exitCode + " (Timeout: " + timeout + ")\nTS Size: " + localTsFile.length() + " bytes\nLog Console:\n" + lastSnippet);
+                    sendTelegramMessage("⚠️ Gagal memotong frame snapshot " + name);
                 }
             } catch (Exception err) {
-        // [MUTED LOG]
-                if (forceSend) {
-                    sendTelegramMessage("🚨 [EXEC ERROR]\nLokasi: " + name + "\nError: " + err.getClass().getSimpleName() + ": " + err.getMessage());
-                }
+                if (forceSend) sendTelegramMessage("🚨 Error: " + err.getMessage());
             } finally {
                 if (localTsFile.exists()) localTsFile.delete();
-                if (outJpg.exists()) outJpg.delete();
+                if (f1.exists()) f1.delete();
+                if (f2.exists()) f2.delete();
             }
-        } catch (Exception e) {
-        // [MUTED LOG]
-        }
+        } catch (Exception ignored) {}
     }
 
     private void sendTelegramPhoto(byte[] photoBytes, String caption) {
@@ -446,65 +322,76 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
             PrintWriter writer = new PrintWriter(new OutputStreamWriter(out, "UTF-8"), true);
 
             writer.append("--").append(boundary).append("\r\n");
-            writer.append("Content-Disposition: form-data; name=\"chat_id\"\r\n\r\n");
-            writer.append(CHAT_ID).append("\r\n");
-
+            writer.append("Content-Disposition: form-data; name=\"chat_id\"\r\n\r\n").append(CHAT_ID).append("\r\n");
             writer.append("--").append(boundary).append("\r\n");
-            writer.append("Content-Disposition: form-data; name=\"caption\"\r\n\r\n");
-            writer.append(caption).append("\r\n");
-
+            writer.append("Content-Disposition: form-data; name=\"caption\"\r\n\r\n").append(caption).append("\r\n");
             writer.append("--").append(boundary).append("\r\n");
-            writer.append("Content-Disposition: form-data; name=\"photo\"; filename=\"cctv.jpg\"\r\n");
-            writer.append("Content-Type: image/jpeg\r\n\r\n");
-            writer.flush();
+            writer.append("Content-Disposition: form-data; name=\"photo\"; filename=\"snapshot.jpg\"\r\n");
+            writer.append("Content-Type: image/jpeg\r\n\r\n").flush();
 
             out.write(photoBytes);
             out.flush();
-
-            writer.append("\r\n");
-            writer.append("--").append(boundary).append("--\r\n");
-            writer.flush();
-            writer.close();
+            writer.append("\r\n--").append(boundary).append("--\r\n").flush();
 
             conn.getResponseCode();
-        } catch (Exception e) {
-        // [MUTED LOG]
-        }
+            conn.disconnect();
+        } catch (Exception ignored) {}
     }
 
     private void sendTelegramMessage(String text) {
         try {
-            String u = "https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage";
-            String payload = "chat_id=" + CHAT_ID + "&text=" + java.net.URLEncoder.encode(text, "UTF-8");
-            URL url = new URL(u);
+            URL url = new URL("https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage");
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
             conn.setDoOutput(true);
-            OutputStream os = conn.getOutputStream();
-            os.write(payload.getBytes("UTF-8"));
-            os.flush();
-            os.close();
+            conn.setRequestProperty("Content-Type", "application/json");
+            String payload = "{\"chat_id\":\"" + CHAT_ID + "\",\"text\":\"" + text.replace("\"", "\\\"").replace("\n", "\\n") + "\"}";
+            try (OutputStream os = conn.getOutputStream()) {
+                os.write(payload.getBytes("UTF-8"));
+            }
             conn.getResponseCode();
+            conn.disconnect();
         } catch (Exception ignored) {}
     }
 
-    private String httpGet(String urlStr) {
-        try {
-            URL url = new URL(urlStr);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0");
-            conn.setConnectTimeout(8000);
-            conn.setReadTimeout(8000);
-            BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = in.readLine()) != null) sb.append(line).append("\n");
-            in.close();
-            return sb.toString();
-        } catch (Exception e) {
-            return null;
-        }
+    private void startTelegramPolling() {
+        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+            while (isRunning) {
+                try {
+                    URL url = new URL("https://api.telegram.org/bot" + BOT_TOKEN + "/getUpdates?offset=" + (lastUpdateId + 1) + "&timeout=15");
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+                    conn.setConnectTimeout(20000);
+                    conn.setReadTimeout(20000);
+
+                    if (conn.getResponseCode() == 200) {
+                        try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+                            StringBuilder sb = new StringBuilder();
+                            String line;
+                            while ((line = br.readLine()) != null) sb.append(line);
+                            String res = sb.toString();
+
+                            int idx = 0;
+                            while ((idx = res.indexOf("\"update_id\":", idx)) != -1) {
+                                int start = idx + 12;
+                                int end = res.indexOf(",", start);
+                                if (end != -1) {
+                                    lastUpdateId = Long.parseLong(res.substring(start, end).trim());
+                                }
+                                idx = start;
+                            }
+
+                            if (res.contains("\"text\":\"/cek\"") || res.contains("\"text\":\"/cek@Ciroaja_bot\"")) {
+                                sendTelegramMessage("⌛ Menghubungkan ke CCTV & menganalisis dinamika gerak lalu lintas...");
+                                for (Map.Entry<String, String> e : cams.entrySet()) {
+                                    checkAndSendCamera(e.getKey(), e.getValue(), true);
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+                try { Thread.sleep(2000); } catch (Exception ignored) {}
+            }
+        });
     }
 }
