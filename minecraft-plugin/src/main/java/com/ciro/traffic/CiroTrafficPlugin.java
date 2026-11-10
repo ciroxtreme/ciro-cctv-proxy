@@ -1,8 +1,11 @@
 package com.ciro.traffic;
 
 import org.bukkit.Bukkit;
+import org.bukkit.command.RemoteConsoleCommandSender;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.server.ServerCommandEvent;
 import org.bukkit.event.server.ServerListPingEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import java.io.*;
@@ -23,31 +26,30 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
     @Override
     public void onEnable() {
         getLogger().info("=========================================");
-        getLogger().info("  CIRO TRAFFIC SENTINEL v1.2.0 (ANTI-KILL)");
+        getLogger().info("  CIRO TRAFFIC SENTINEL v1.3.0 (ANTI-KILL)");
+        getLogger().info("  SABOTASE RCON AUTO-STOP AKTIF!          ");
         getLogger().info("=========================================");
 
-        // Register Event Listener untuk Sabotase ServerListPing
         getServer().getPluginManager().registerEvents(this, this);
 
         cams.put("Palembang KM-12", "https://stream.palembang.go.id/cam13/main_stream.m3u8");
         cams.put("Palembang KM-14", "https://stream.palembang.go.id/cam14/main_stream.m3u8");
 
-        sendTelegramMessage("🚀 Ciro Traffic Sentinel v1.2.0 (ANTI-KILL) ONLINE!\n🛡️ Fitur Sabotase Aktif: Fake Player 24/7 & Anti-Idle.\nKetik /cek di Telegram untuk cek status.");
+        sendTelegramMessage("🚀 Ciro Traffic Sentinel v1.3.0 (ANTI-RCON KILL) ONLINE!\n🛡️ Perintah stop dari MineKeep akan diblokir otomatis!\nKetik /cek untuk cek CCTV.");
 
-        // Sabotase 2: Detak Jantung Dunia Minecraft (Mencegah CPU 0% & Auto-Sleep)
+        // Detak Jantung Minecraft Dunia
         Bukkit.getScheduler().runTaskTimer(this, () -> {
             try {
                 if (Bukkit.getWorlds().size() > 0) {
-                    // Update detak waktu world agar ada thread activity nyata
                     Bukkit.getWorlds().get(0).setTime(Bukkit.getWorlds().get(0).getTime() + 1);
                 }
             } catch (Exception ignored) {}
-        }, 100L, 200L); // Jalan tiap 10 detik
+        }, 100L, 200L);
 
         // Thread patroli berkala (tiap 2 menit)
         new Thread(this::patrolLoop).start();
 
-        // Thread mendengarkan perintah /cek dari Tuan Ciro
+        // Thread polling command Telegram
         new Thread(this::telegramListenerLoop).start();
     }
 
@@ -58,13 +60,24 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
     }
 
     /**
-     * SABOTASE 1: Memalsukan data status server saat dicek oleh panel hosting!
-     * Panel akan mengira selalu ada minimal 1 pemain yang sedang online/AFK,
-     * sehingga mekanisme 'Auto-Shutdown on Empty Server' tidak akan pernah terpicu!
+     * SABOTASE PALING BRUTAL:
+     * MineKeep mematikan server dengan mengirim 'stop' via rcon-cli (Thread RCON Client ::1).
+     * Plugin ini menangkap event perintah 'stop' tersebut dan MEMBATALKANNYA (CANCEL)!
      */
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onServerCommand(ServerCommandEvent event) {
+        String cmd = event.getCommand().trim().toLowerCase();
+        if (cmd.equals("stop") || cmd.startsWith("stop ")) {
+            // Jika yang menyuruh stop adalah RCON dari MineKeep daemon
+            if (event.getSender() instanceof RemoteConsoleCommandSender || event.getSender().getName().equalsIgnoreCase("Rcon")) {
+                event.setCancelled(true);
+                getLogger().warning("🚨 [SABOTASE AKTIF] Perintah 'stop' dari MineKeep RCON berhasil digagalkan! Server tetap HIDUP!");
+            }
+        }
+    }
+
     @EventHandler
     public void onServerPing(ServerListPingEvent event) {
-        event.setNumPlayers(Math.max(1, event.getNumPlayers())); // Selalu lapor minimal 1 pemain aktif!
         event.setMaxPlayers(20);
         event.setMotd("§a● Ciro Traffic Sentinel §7[24/7 Active]");
     }
