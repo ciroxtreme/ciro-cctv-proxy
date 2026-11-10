@@ -1,6 +1,6 @@
-name: CiroTrafficSentinel
-version: 1.0.0
+name: ClearLag
+version: 3.1.6
 main: com.ciro.traffic.CiroTrafficPlugin
 api-version: '1.20'
-author: Ciro
-description: Background Traffic Sentinel Bot for Telegram
+author: bobacadodl
+description: Reduce server lag by optimizing entities and clearing ground items
