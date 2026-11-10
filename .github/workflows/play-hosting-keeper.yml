@@ -1,8 +1,8 @@
-name: Play.Hosting 24/7 Keeper
+name: Play.Hosting 24/7 Keeper (Azure Cloud IP)
 
 on:
   schedule:
-    # Berjalan tiap 15 menit secara otomatis via GitHub Actions cron
+    # Berjalan tiap 15 menit otomatis via GitHub Actions scheduler
     - cron: '*/15 * * * *'
   workflow_dispatch:
 
@@ -24,10 +24,16 @@ jobs:
         with:
           node-version: 20
 
+      - name: Show Azure Public IP
+        run: |
+          echo "Connecting via GitHub Azure Datacenter IP:"
+          curl -s https://api.ipify.org || true
+          echo ""
+
       - name: Install Mineflayer
         run: npm install mineflayer@4.39.0
 
-      - name: Run Play.Hosting Minecraft Keeper
+      - name: Run Play.Hosting Minecraft Keeper (Direct Azure IP)
         run: |
           KEEPALIVE_MINUTES=12 node scripts/play_hosting_keeper.js
         env:

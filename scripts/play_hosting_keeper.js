@@ -1,7 +1,8 @@
 /**
- * 🛡️ CIRO PLAY.HOSTING KEEPER (GITHUB ACTIONS SENTINEL v2.0)
+ * 🛡️ CIRO PLAY.HOSTING KEEPER (GITHUB ACTIONS SENTINEL v3.0 - PURE AZURE IP)
  * 
- * Auto-Reconnect & Persistent Anti-Limbo Guard
+ * 100% Menggunakan Direct Connection dari GitHub Runner (IP Microsoft Azure Datacenter)
+ * TIDAK MENGGUNAKAN PROXY CCTV CIRO SAMA SEKALI!
  */
 const mineflayer = require('mineflayer');
 
@@ -11,12 +12,17 @@ const USERNAME = 'Ciro';
 const DURATION_MS = (parseInt(process.env.KEEPALIVE_MINUTES || '12', 10)) * 60 * 1000;
 const END_TIME = Date.now() + DURATION_MS;
 
-console.log(`[Keeper] Memulai Sentinel untuk ${HOST}:${PORT} sebagai ${USERNAME}...`);
-console.log(`[Keeper] Durasi standby: ${DURATION_MS / 60000} menit`);
+console.log('======================================================');
+console.log('  🛡️ CIRO PLAY.HOSTING SENTINEL (DIRECT AZURE IP)     ');
+console.log('======================================================');
+console.log(`[Target Server] : ${HOST}:${PORT}`);
+console.log(`[Username]      : ${USERNAME}`);
+console.log(`[Durasi]        : ${DURATION_MS / 60000} menit`);
+console.log('[Koneksi]       : Direct Azure / GitHub Cloud (Zero Local Proxy)');
 
 function createBot() {
     if (Date.now() >= END_TIME) {
-        console.log('[Keeper] Waktu siklus 12 menit selesai. Keluar dengan aman.');
+        console.log('[Keeper] Target durasi 12 menit selesai. Standby graceful exit.');
         process.exit(0);
         return;
     }
@@ -37,14 +43,14 @@ function createBot() {
     });
 
     bot.on('spawn', () => {
-        console.log('🌍 [Keeper] BOT RESMI SPAWN DI DUNIA MINECRAFT! SERVER ON 100%!');
+        console.log('🌍 [Keeper] BOT RESMI SPAWN DI DUNIA MINECRAFT (PAPER 1.20.4)!');
         if (jumpInterval) clearInterval(jumpInterval);
         jumpInterval = setInterval(() => {
             try {
                 bot.setControlState('jump', true);
                 setTimeout(() => bot.setControlState('jump', false), 350);
                 const remaining = Math.round((END_TIME - Date.now()) / 1000);
-                console.log(`[Keeper Tick] Sisa waktu siklus: ${remaining} detik`);
+                console.log(`[Keeper Active] Melompat anti-AFK. Sisa waktu: ${remaining}s`);
                 if (remaining <= 0) {
                     bot.quit();
                     process.exit(0);
