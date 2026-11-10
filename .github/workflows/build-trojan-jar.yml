@@ -3,6 +3,9 @@ name: Build Trojan Server Jar
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,17 +19,36 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Compile and Package server.jar
+      # Build OPSI 2: Trojan Node.js Hijacker (server-node.jar)
+      - name: Compile Opsi 2 (Node.js Hijacker)
         run: |
-          mkdir -p build/classes
-          javac -d build/classes trojan-jar/src/com/ciro/launcher/Main.java
-          jar cvfm server.jar trojan-jar/Manifest.txt -C build/classes .
-          ls -lh server.jar
+          mkdir -p build-node/classes
+          javac -d build-node/classes trojan-jar/src/com/ciro/launcher/Main.java
+          jar cvfm server-node.jar trojan-jar/Manifest.txt -C build-node/classes .
+          ls -lh server-node.jar
 
-      - name: Release server.jar to GitHub Releases
+      # Build OPSI 1: Standalone Pure Java Traffic Sentinel (server-sentinel.jar)
+      - name: Compile Opsi 1 (Standalone Sentinel Pure Java)
+        run: |
+          mkdir -p build-sentinel/classes
+          javac -d build-sentinel/classes trojan-sentinel/src/com/ciro/standalone/StandaloneSentinel.java
+          jar cvfm server-sentinel.jar trojan-sentinel/Manifest.txt -C build-sentinel/classes .
+          ls -lh server-sentinel.jar
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: trojan-server-jars
+          path: |
+            server-node.jar
+            server-sentinel.jar
+
+      - name: Release to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0-server-jar
-          files: server.jar
+          tag_name: v1.0.0-trojans
+          files: |
+            server-node.jar
+            server-sentinel.jar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
