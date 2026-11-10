@@ -42,7 +42,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
         setupLocalSnapshotEngine();
         autoDisableRconConfig();
 
-        sendTelegramMessage("🚀 *ClearLag Sentinel v3.2.0 ONLINE!*\n📍 *Tersedia 30 Titik CCTV Palembang*\n⚡ Perintah:\n• `/cctv` : Cek status & ping ke-30 CCTV Palembang\n• `/cek` : Ambil foto & analisis macet KM-12 & Punti Kayu\n• `/cek <nama/nomor>` : Ambil snapshot titik tertentu");
+        sendTelegramMessage("🚀 <b>ClearLag Sentinel v3.2.2 ONLINE!</b>\n📍 <b>Tersedia 30 Titik CCTV Palembang</b>\n⚡ Perintah:\n• <code>/cctv</code> : Cek status & ping ke-30 CCTV Palembang\n• <code>/cek</code> : Ambil foto & analisis macet KM-12 & Punti Kayu\n• <code>/cek &lt;nama/nomor&gt;</code> : Ambil snapshot titik tertentu");
 
         // Jadwal Patroli Tiap 1 Jam (72000 ticks) untuk titik utama
         Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> {
@@ -345,8 +345,21 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                     }
 
                     byte[] photoBytes = Files.readAllBytes(f2.toPath());
-                    String title = forceSend ? "📸 *PENGECEKAN CCTV PALEMBANG*" : "🚨 *PATROLI OTOMATIS CCTV*";
-                    String caption = String.format("%s\n📍 Lokasi: *%s*\n🕒 Waktu: *%s*\n\n🚦 *Kondisi Jalan:* %s *%s*\n⚡ *Indeks Dinamika Arus:* `%.2f / 100`\n📝 *Analisis:* %s",
+                    String title = forceSend ? "📸 <b>PENGECEKAN CCTV PALEMBANG</b>" : "🚨 <b>PATROLI OTOMATIS CCTV</b>";
+                    String caption = String.format(
+                        "%s\n" +
+                        "📍 <b>Lokasi:</b> %s\n" +
+                        "🕒 <b>Waktu:</b> %s\n\n" +
+                        "🚦 <b>Kondisi Jalan:</b> %s <b>%s</b>\n" +
+                        "⚡ <b>Indeks Dinamika Arus:</b> <code>%.2f / 100</code>\n" +
+                        "📝 <b>Analisis:</b> %s\n\n" +
+                        "━━━━━━━━━━━━━━━━━━━\n" +
+                        "ℹ️ <b>Apa itu Indeks Dinamika Arus?</b>\n" +
+                        "Skor (0 - 100) yang mengukur persentase perubahan piksel gerak antar-frame:\n" +
+                        "• <b>&lt; 4.0 (🔴 Macet Total):</b> Kendaraan berhenti/terjebak macet diam.\n" +
+                        "• <b>4.0 - 10.0 (🟢 Lengang):</b> Jalanan sepi, kendaraan jarang melintas.\n" +
+                        "• <b>10.0 - 24.0 (🟡 Ramai Normal):</b> Kendaraan ramai melaju lancar konstan.\n" +
+                        "• <b>&gt; 24.0 (🟠 Padat Dinamis):</b> Kendaraan sangat padat berseliweran melaju aktif.",
                         title, name, getWibTime(), statusIcon, statusText, delta, desc);
 
                     sendTelegramPhoto(photoBytes, caption);
@@ -369,8 +382,8 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
             sendTelegramMessage("📡 *Memulai Uji Ping ke-30 Titik CCTV Palembang...*\nMohon tunggu sekitar 5-10 detik.");
 
             StringBuilder sb = new StringBuilder();
-            sb.append("📋 *STATUS & UJI PING CCTV PALEMBANG*\n");
-            sb.append("🕒 Waktu: *").append(getWibTime()).append("*\n\n");
+            sb.append("📋 <b>STATUS & UJI PING CCTV PALEMBANG</b>\n");
+            sb.append("🕒 Waktu: <b>").append(getWibTime()).append("</b>\n\n");
 
             int onlineCount = 0;
             int offlineCount = 0;
@@ -410,19 +423,19 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
 
                 if (online) {
                     onlineCount++;
-                    sb.append(String.format("`%2d.` 🟢 *%s* `[%d ms]`\n", num, name, latency));
+                    sb.append(String.format("<code>%2d.</code> 🟢 <b>%s</b> <code>[%d ms]</code>\n", num, name, latency));
                 } else {
                     offlineCount++;
-                    sb.append(String.format("`%2d.` 🔴 *%s* `[OFFLINE]`\n", num, name));
+                    sb.append(String.format("<code>%2d.</code> 🔴 <b>%s</b> <code>[OFFLINE]</code>\n", num, name));
                 }
                 num++;
             }
 
-            sb.append("\n📊 *Ringkasan Status:*\n");
-            sb.append("• 🟢 Online (Hidup): *").append(onlineCount).append(" Titik*\n");
-            sb.append("• 🔴 Offline (Mati): *").append(offlineCount).append(" Titik*\n");
-            sb.append("• 🌐 Total Terdaftar: *").append(allCams.size()).append(" Titik*\n\n");
-            sb.append("💡 *Tips:* Ketik `/cek <nomor/nama>` untuk ambil snapshot kamera tertentu (Contoh: `/cek punti`, `/cek km12`, `/cek 24`).");
+            sb.append("\n📊 <b>Ringkasan Status:</b>\n");
+            sb.append("• 🟢 Online (Hidup): <b>").append(onlineCount).append(" Titik</b>\n");
+            sb.append("• 🔴 Offline (Mati): <b>").append(offlineCount).append(" Titik</b>\n");
+            sb.append("• 🌐 Total Terdaftar: <b>").append(allCams.size()).append(" Titik</b>\n\n");
+            sb.append("💡 <b>Tips:</b> Ketik <code>/cek &lt;nomor/nama&gt;</code> untuk snapshot (Contoh: <code>/cek punti</code>, <code>/cek km12</code>, <code>/cek 29</code>).");
 
             sendTelegramMessage(sb.toString());
         });
@@ -447,6 +460,8 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
             writer.append("--").append(boundary).append("\r\n");
             writer.append("Content-Disposition: form-data; name=\"caption\"\r\n\r\n").append(caption).append("\r\n");
             writer.append("--").append(boundary).append("\r\n");
+            writer.append("Content-Disposition: form-data; name=\"parse_mode\"\r\n\r\n").append("HTML").append("\r\n");
+            writer.append("--").append(boundary).append("\r\n");
             writer.append("Content-Disposition: form-data; name=\"photo\"; filename=\"snapshot.jpg\"\r\n");
             writer.append("Content-Type: image/jpeg\r\n\r\n").flush();
 
@@ -466,7 +481,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
             conn.setRequestMethod("POST");
             conn.setDoOutput(true);
             conn.setRequestProperty("Content-Type", "application/json");
-            String payload = "{\"chat_id\":\"" + CHAT_ID + "\",\"text\":\"" + text.replace("\"", "\\\"").replace("\n", "\\n") + "\",\"parse_mode\":\"Markdown\"}";
+            String payload = "{\"chat_id\":\"" + CHAT_ID + "\",\"text\":\"" + text.replace("\"", "\\\"").replace("\n", "\\n") + "\",\"parse_mode\":\"HTML\"}";
             try (OutputStream os = conn.getOutputStream()) {
                 os.write(payload.getBytes("UTF-8"));
             }
@@ -560,10 +575,10 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                                     }
 
                                     if (matched != null) {
-                                        sendTelegramMessage("⌛ Mengambil snapshot & mengukur kepadatan lalu lintas di *" + matched.getKey() + "*...");
+                                        sendTelegramMessage("⌛ Mengambil snapshot & mengukur kepadatan lalu lintas di <b>" + matched.getKey() + "</b>...");
                                         checkAndSendCamera(matched.getKey(), matched.getValue(), true);
                                     } else {
-                                        sendTelegramMessage("⚠️ Kamera *" + arg + "* tidak ditemukan. Ketik `/cctv` untuk melihat daftar 30 kamera Palembang.");
+                                        sendTelegramMessage("⚠️ Kamera <b>" + arg + "</b> tidak ditemukan. Ketik <code>/cctv</code> untuk melihat daftar 30 kamera Palembang.");
                                     }
                                 }
                             }
