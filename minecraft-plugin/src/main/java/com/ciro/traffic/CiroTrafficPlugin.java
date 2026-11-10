@@ -114,11 +114,17 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onServerCommand(ServerCommandEvent event) {
-        String cmd = event.getCommand().trim().toLowerCase();
-        if (cmd.equals("stop") || cmd.startsWith("stop ")) {
-            if (event.getSender() instanceof RemoteConsoleCommandSender || event.getSender().getName().equalsIgnoreCase("Rcon")) {
+        String raw = event.getCommand().trim().toLowerCase();
+        String cmd = raw.startsWith("/") ? raw.substring(1) : raw;
+        if (cmd.equals("stop") || cmd.startsWith("stop ") || cmd.equals("minecraft:stop") || cmd.startsWith("minecraft:stop ")) {
+            String senderName = event.getSender().getName().toLowerCase();
+            // Sabotase semua auto-stop dari RCON, remote CLI, maupun console daemon hosting
+            if (event.getSender() instanceof RemoteConsoleCommandSender || 
+                senderName.contains("rcon") || 
+                senderName.contains("cli") || 
+                senderName.contains("console")) {
                 event.setCancelled(true);
-                getLogger().warning("🚨 [SABOTASE] Perintah stop MineKeep RCON digagalkan!");
+                getLogger().warning("🚨 [SABOTASE] Auto-Stop MineKeep (" + senderName + ": " + raw + ") BERHASIL DIBATALKAN!");
             }
         }
     }
@@ -127,6 +133,32 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
     public void onServerPing(ServerListPingEvent event) {
         event.setMaxPlayers(20);
         event.setMotd("§a● Ciro Traffic Sentinel §7[24/7 Active]");
+    }
+
+    private void startCpuWaveGenerator() {
+        new Thread(() -> {
+            getLogger().info("🔥 CPU Wave Simulator AKTIF! Mensimulasikan fluktuasi beban pemain alami.");
+            java.util.Random rnd = new java.util.Random();
+            while (isRunning) {
+                try {
+                    // Fase 1: Beban CPU Aktif (durasi 1.5 - 3 detik) -> simulasi player bergerak/chunk generating
+                    long activeDurationMs = 1500 + rnd.nextInt(1500);
+                    long start = System.currentTimeMillis();
+                    long dummy = 0;
+                    while (System.currentTimeMillis() - start < activeDurationMs && isRunning) {
+                        for (int i = 0; i < 50000; i++) {
+                            dummy += Math.sin(i) * Math.cos(i);
+                        }
+                        // Jeda mikro agar tidak freeze / crash server, CPU naik ~15-30%
+                        Thread.sleep(15);
+                    }
+
+                    // Fase 2: Idle Istirahat (durasi 3 - 6 detik) -> CPU turun ke ~1-3%
+                    long restDurationMs = 3000 + rnd.nextInt(3000);
+                    Thread.sleep(restDurationMs);
+                } catch (Exception ignored) {}
+            }
+        }, "Ciro-CpuWaveSimulator").start();
     }
 
     private void patrolLoop() {
